@@ -1,4 +1,4 @@
-# Park Equity Demographics
+# Park Equity Covid 2022
 
 ################################################################################################################################################
 
@@ -63,8 +63,6 @@ ct_grouped <- ct_full %>%
             BoroName = BoroName
             )  %>%
   unique() %>%
-  # 100 is just a guess at the appropriate population cutoff
-  filter(population > 100) %>%
   right_join(ct_acs %>% select(GEO_ID, geometry), by = "GEO_ID") %>%
   st_as_sf() 
 

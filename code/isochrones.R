@@ -1,6 +1,4 @@
-library(mapboxapi)
-library(plyr)
-library(dplyr)
+# Park Equity Covid 2022
 
 source("code/load_dependencies.R")
 

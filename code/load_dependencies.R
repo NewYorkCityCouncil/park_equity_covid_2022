@@ -7,7 +7,7 @@
 
 list.of.packages <- c("tidyverse", "janitor", "lubridate", "sf", "ggplot2", 
                       "leaflet", "leaflet.extras", "htmlwidgets", "RSocrata", 
-                      "vroom", "mapview", "classInt", "openxlsx",
+                      "vroom", "mapview", "classInt", "openxlsx", "mapboxapi",
                       "skimr", "DBI", "geoclient", "censusapi", "readxl")
 
 # checks if packages has been previously installed

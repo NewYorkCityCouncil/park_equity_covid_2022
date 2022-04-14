@@ -1,11 +1,10 @@
 # RUN ONLY IF UPDATING FILES OR CREATING TABLES FOR THE FIRST TIME
 # ________________________________________________________________
 
-################################################################################################################################################
-### Import and Clean ACS Census Tract Data
+### Import and Clean ACS Census Tract Data ----------------------------------------------------------------------
 
 # 2010 Census Tracts (Clipped to Shoreline)
-# Use 2010 since data is from 2019, prior to new 2020 census tract boundaries 
+# Use 2010 since data NYC Health MODZCTA is 2010
 # https://www1.nyc.gov/site/planning/data-maps/open-data/census-download-metadata.page
 url <- "https://www1.nyc.gov/assets/planning/download/zip/data-maps/open-data/nyct2010_22a.zip"
 ct_shp <- sf::read_sf(unzip_sf(url)) %>%
@@ -22,18 +21,18 @@ ct_shp <- sf::read_sf(unzip_sf(url)) %>%
     GEO_ID = paste0("1400000US36", county, CT2010)
   )
 
-### Demographics 
+### Demographics ----------------------------------------------------------------------
 # Note: you must get a census API key to use getCensus functions
 
 # Income data to pull from ACS
-# https://api.census.gov/data/2019/acs/acs5/subject/variables.html
+# https://api.census.gov/data/2020/acs/acs5/subject/variables.html
 # Household median income: S1901_C01_012E
 inc_pop_col <- c("NAME", "GEO_ID", "S0101_C01_001E", paste0("S1901_C01_0",formatC(1:13, width = 2, flag = "0"), "E")) 
 
 # Income data at census tract level
 ct_inc_pop <- getCensus(
   name = "acs/acs5/subject",
-  vintage = 2019,
+  vintage = 2020,
   vars = inc_pop_col, 
   region = "tract:*", 
   regionin = "state:36+county:005,047,081,085,061")
@@ -46,7 +45,7 @@ foreign_col <- c("NAME", "GEO_ID", "DP02_0087E", "DP02_0093E")
 # Foreign-born data at census tract level
 ct_foreign <- getCensus(
   name = "acs/acs5/profile",
-  vintage = 2019,
+  vintage = 2020,
   vars = foreign_col, 
   region = "tract:*", 
   regionin = "state:36+county:005,047,081,085,061")
@@ -60,7 +59,7 @@ race_col <- c("NAME", "GEO_ID", "DP05_0070E", "DP05_0077E", "DP05_0077PE")
 # Race/eth data at census tract level
 ct_race <- getCensus(
   name = "acs/acs5/profile",
-  vintage = 2019,
+  vintage = 2020,
   vars = race_col, 
   region = "tract:*", 
   regionin = "state:36+county:005,047,081,085,061")
@@ -79,8 +78,7 @@ ct_acs <- ct_acs %>% st_as_sf() %>%
 st_write(ct_acs, "data/processed/ct_acs.geojson",  
          driver='GeoJSON', delete_dsn=TRUE)
 
-################################################################################################################################################
-### Import and Clean Park Maintenance Data
+### Import and Clean Park Maintenance Data ----------------------------------------------------------------------
 
 # Data downloaded from Parks website (Local Law 98 of 2015)
 # https://www.nycgovparks.org/news/archive
@@ -96,6 +94,5 @@ pm <- dl %>%
 
 write.csv(pm, "data/processed/park_maintenance.csv", row.names = FALSE)
 
-################################################################################################################################################
 
 
