@@ -102,7 +102,12 @@ st_write(ct_acs, "data/processed/ct_acs.geojson",
          driver='GeoJSON', delete_dsn=TRUE)
 
 # Combine the zcta data together
+zcta_acs <- zcta_inc_pop %>% select(!c("zip_code_tabulation_area")) %>%
+  left_join(zcta_foreign %>% select(!c("zip_code_tabulation_area", "state", "NAME", "ZCTA5")), by = "GEO_ID") %>%
+  left_join(zcta_race %>% select(!c("zip_code_tabulation_area", "state", "NAME", "ZCTA5")), by = "GEO_ID") 
+zcta_acs[,3:22][zcta_acs[,3:22] < 0] <- NA
 
+write.csv(zcta_acs, "data/processed/zcta_acs.csv", row.names = FALSE)
 
 ### Import and Clean Park Maintenance Data ----------------------------------------------------------------------
 

@@ -14,7 +14,8 @@ ZNYC <- read.csv("https://www2.census.gov/geo/docs/maps-data/data/rel/zcta_tract
   filter(
     STATE=="36" & (COUNTY=="05" | COUNTY=="5" | COUNTY=="47" | COUNTY=="81" | COUNTY=="85" | COUNTY=="61")
   ) %>%
-  mutate(GEO_ID = paste0("1400000US", GEOID))
+  mutate(GEO_ID = paste0("1400000US", GEOID)) %>%
+  mutate(ZCTA5 = as.character(ZCTA5))
 
 # Crosswalk to get from zip to modzcta -------------
 # add missing zip to crosswalk
@@ -49,7 +50,7 @@ covid_sf <- mod_zcta %>%
 Z_facre <- ZNYC %>%
   left_join(ct_grouped, by = "GEO_ID")
 
-# ZCTA sqft is weighted average of sqft in each nested census tract 
+# ZCTA facre is weighted average of facre in each nested census tract 
 for (i in unique(Z_facre$ZCTA5)){
   Z_facre[Z_facre$ZCTA5==i,"Z_facre"] <- sum(Z_facre[Z_facre$ZCTA5==i,"f_acre_sum"] * 
                                               Z_facre[Z_facre$ZCTA5==i,"ZPOPPCT"]/
@@ -61,5 +62,43 @@ for (i in unique(Z_facre$ZCTA5)){
   Z_facre[Z_facre$ZCTA5==i,"Pop_Add"] <- sum(Z_facre[Z_facre$ZCTA5==i,"POPPT"])
 }
 
+# Merge ZCTA to MODZCTA crosswalk with Z_facre data
+MZtoZ_facre <- modzcta_cross %>%
+  left_join(Z_facre[,c("ZCTA5", "Pop_Add", "Z_facre")], by="ZCTA5") %>%
+  left_join(zcta_acs[,c("ZCTA5", "S1901_C01_012E", "DP02_0093E", "DP05_0077PE")], by="ZCTA5") %>%
+  mutate(S1901_C01_012E = ifelse(S1901_C01_012E<=0, NA, S1901_C01_012E)) %>%
+  unique()
 
+# MODZCTA facre is weighted average of facre in each nested ZCTA
+for (j in MZtoZ_facre$MODZCTA){
+  MZtoZ_facre[MZtoZ_facre$MODZCTA==j,"facre"] <- sum(MZtoZ_facre[MZtoZ_facre$MODZCTA==j,"Z_facre"] * 
+                                                      MZtoZ_facre[MZtoZ_facre$MODZCTA==j,"Pop_Add"]/
+                                                  (sum(MZtoZ_facre[MZtoZ_facre$MODZCTA==j,"Pop_Add"]))
+                                                , na.rm=TRUE)
+  MZtoZ_facre[MZtoZ_facre$MODZCTA==j,"Pop_Add_MODZCTA"] <- sum(MZtoZ_facre[MZtoZ_facre$MODZCTA==j,"Pop_Add"])
+  MZtoZ_facre[MZtoZ_facre$MODZCTA==j,"MedInc"] <- sum(MZtoZ_facre[MZtoZ_facre$MODZCTA==j,"S1901_C01_012E"] * 
+                                                        MZtoZ_facre[MZtoZ_facre$MODZCTA==j,"Pop_Add"]/
+                                                    (sum(MZtoZ_facre[MZtoZ_facre$MODZCTA==j,"Pop_Add"]))
+                                                  , na.rm=TRUE)
+  MZtoZ_facre[MZtoZ_facre$MODZCTA==j,"ForeignBorn"] <- sum(MZtoZ_facre[MZtoZ_facre$MODZCTA==j,"DP02_0093E"] * 
+                                                        MZtoZ_facre[MZtoZ_facre$MODZCTA==j,"Pop_Add"]/
+                                                        (sum(MZtoZ_facre[MZtoZ_facre$MODZCTA==j,"Pop_Add"]))
+                                                      , na.rm=TRUE)
+  MZtoZ_facre[MZtoZ_facre$MODZCTA==j,"NH_White"] <- sum(MZtoZ_facre[MZtoZ_facre$MODZCTA==j,"DP05_0077PE"] * 
+                                                             MZtoZ_facre[MZtoZ_facre$MODZCTA==j,"Pop_Add"]/
+                                                             (sum(MZtoZ_facre[MZtoZ_facre$MODZCTA==j,"Pop_Add"]))
+                                                           , na.rm=TRUE)
+}
 
+# Merge MZtoZ_facre data with MODZCTA shapefile
+modzcta_facre <- mod_zcta %>%
+  left_join(MZtoZ_facre, by = "MODZCTA") %>%
+  mutate(facre_pc = ifelse(Pop_Add_MODZCTA!=0, 
+                            facre / Pop_Add_MODZCTA, 
+                            NA)
+  ) %>%
+  select(c("MODZCTA", "facre", "Pop_Add_MODZCTA", "MedInc", "ForeignBorn", "NH_White", "facre_pc")) %>%
+  unique()
+
+st_write(modzcta_facre, "data/processed/modzcta_facre.geojson",  
+         driver='GeoJSON', delete_dsn=TRUE)
