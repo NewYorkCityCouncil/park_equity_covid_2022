@@ -43,14 +43,3 @@ unzip_sf <- function(zip_url) {
 # how to use
 #  x <- sf::read_sf(unzip_sf("https://data.cityofnewyork.us/download/i8iw-xf4u/application%2Fzip"))
 
-
-## LOAD IN COMMON DATASETS ------------------------------
-
-# Crosswalk to get from zip to modzcta -------------
-# add missing zip to crosswalk
-crosswalk <- read.csv("https://raw.githubusercontent.com/nychealth/coronavirus-data/master/Geography-resources/ZCTA-to-MODZCTA.csv", header = TRUE) %>% 
-  add_row(ZCTA = 11249, MODZCTA = 11211)
-
-# mod_zcta shapefile from DOHMH covid github ---------
-mod_zcta <- read_sf("https://raw.githubusercontent.com/nychealth/coronavirus-data/master/Geography-resources/MODZCTA_2010_WGS1984.geo.json")
-

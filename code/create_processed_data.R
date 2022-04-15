@@ -32,10 +32,18 @@ inc_pop_col <- c("NAME", "GEO_ID", "S0101_C01_001E", paste0("S1901_C01_0",format
 # Income data at census tract level
 ct_inc_pop <- getCensus(
   name = "acs/acs5/subject",
-  vintage = 2020,
+  vintage = 2019,
   vars = inc_pop_col, 
   region = "tract:*", 
   regionin = "state:36+county:005,047,081,085,061")
+
+# Income data at zcta level
+zcta_inc_pop <- getCensus(
+  name = "acs/acs5/subject",
+  vintage = 2019,
+  vars = inc_pop_col, 
+  region = "zip code tabulation area:*") %>%
+  mutate(ZCTA5 = zip_code_tabulation_area)
 
 # Place of birth data to pull from ACS
 # https://api.census.gov/data/2019/acs/acs5/profile/variables.html
@@ -45,11 +53,18 @@ foreign_col <- c("NAME", "GEO_ID", "DP02_0087E", "DP02_0093E")
 # Foreign-born data at census tract level
 ct_foreign <- getCensus(
   name = "acs/acs5/profile",
-  vintage = 2020,
+  vintage = 2019,
   vars = foreign_col, 
   region = "tract:*", 
   regionin = "state:36+county:005,047,081,085,061")
 
+# Foreign-born data at zcta level
+zcta_foreign <- getCensus(
+  name = "acs/acs5/profile",
+  vintage = 2019,
+  vars = foreign_col, 
+  region = "zip code tabulation area:*") %>%
+  mutate(ZCTA5 = zip_code_tabulation_area)
 
 # Race/eth data to pull from ACS
 # https://api.census.gov/data/2019/acs/acs5/profile/groups/DP05.html
@@ -59,10 +74,18 @@ race_col <- c("NAME", "GEO_ID", "DP05_0070E", "DP05_0077E", "DP05_0077PE")
 # Race/eth data at census tract level
 ct_race <- getCensus(
   name = "acs/acs5/profile",
-  vintage = 2020,
+  vintage = 2019,
   vars = race_col, 
   region = "tract:*", 
   regionin = "state:36+county:005,047,081,085,061")
+
+# Race/eth data at zcta level
+zcta_race <- getCensus(
+  name = "acs/acs5/profile",
+  vintage = 2019,
+  vars = race_col, 
+  region = "zip code tabulation area:*") %>%
+  mutate(ZCTA5 = zip_code_tabulation_area)
 
 # Combine the census tract data with the census tract shapefile 
 ct_acs <- ct_inc_pop %>%
@@ -77,6 +100,9 @@ ct_acs <- ct_acs %>% st_as_sf() %>%
 
 st_write(ct_acs, "data/processed/ct_acs.geojson",  
          driver='GeoJSON', delete_dsn=TRUE)
+
+# Combine the zcta data together
+
 
 ### Import and Clean Park Maintenance Data ----------------------------------------------------------------------
 
