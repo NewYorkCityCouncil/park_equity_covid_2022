@@ -58,15 +58,22 @@ for (i in unique(Z_facre$ZCTA5)){
                                           , na.rm=TRUE)
   Z_facre[Z_facre$ZCTA5==i,"Z_facre"] <- ifelse(Z_facre[Z_facre$ZCTA5==i,"Z_facre"]==0, 
                                              Z_facre[Z_facre$ZCTA5==i,"f_acre_sum"], 
-                                             Z_facre[Z_facre$ZCTA5==i,"Z_facre"])
+                                             Z_facre[Z_facre$ZCTA5==i,"Z_facre"]) 
+  Z_facre[Z_facre$ZCTA5==i,"Z_hrs_per_facre"] <- sum(Z_facre[Z_facre$ZCTA5==i,"hrs_per_facre"] * 
+                                               Z_facre[Z_facre$ZCTA5==i,"ZPOPPCT"]/
+                                               (sum(Z_facre[which(!is.na(Z_facre$hrs_per_facre) & Z_facre$ZCTA5==i),"ZPOPPCT"]))
+                                             , na.rm=TRUE)
   Z_facre[Z_facre$ZCTA5==i,"Pop_Add"] <- sum(Z_facre[Z_facre$ZCTA5==i,"POPPT"])
 }
 
 # Merge ZCTA to MODZCTA crosswalk with Z_facre data
 MZtoZ_facre <- modzcta_cross %>%
-  left_join(Z_facre[,c("ZCTA5", "Pop_Add", "Z_facre")], by="ZCTA5") %>%
-  left_join(zcta_acs[,c("ZCTA5", "S1901_C01_012E", "DP02_0093E", "DP05_0077PE")], by="ZCTA5") %>%
-  mutate(S1901_C01_012E = ifelse(S1901_C01_012E<=0, NA, S1901_C01_012E)) %>%
+  left_join(Z_facre[,c("ZCTA5", "Pop_Add", "Z_facre", "Z_hrs_per_facre")], by="ZCTA5") %>%
+  left_join(zcta_acs[,c("ZCTA5", "S1901_C01_012E", "DP02_0093E", "DP02_0087E", "DP05_0077PE")], by="ZCTA5") %>%
+  mutate(
+    S1901_C01_012E = ifelse(S1901_C01_012E<=0, NA, S1901_C01_012E), 
+    Foreign = (DP02_0093E / DP02_0087E) * 100
+    ) %>%
   unique()
 
 # MODZCTA facre is weighted average of facre in each nested ZCTA
@@ -75,12 +82,16 @@ for (j in MZtoZ_facre$MODZCTA){
                                                       MZtoZ_facre[MZtoZ_facre$MODZCTA==j,"Pop_Add"]/
                                                   (sum(MZtoZ_facre[MZtoZ_facre$MODZCTA==j,"Pop_Add"]))
                                                 , na.rm=TRUE)
+  MZtoZ_facre[MZtoZ_facre$MODZCTA==j,"hrs_per_facre"] <- sum(MZtoZ_facre[MZtoZ_facre$MODZCTA==j,"Z_hrs_per_facre"] * 
+                                                       MZtoZ_facre[MZtoZ_facre$MODZCTA==j,"Pop_Add"]/
+                                                       (sum(MZtoZ_facre[MZtoZ_facre$MODZCTA==j,"Pop_Add"]))
+                                                     , na.rm=TRUE)
   MZtoZ_facre[MZtoZ_facre$MODZCTA==j,"Pop_Add_MODZCTA"] <- sum(MZtoZ_facre[MZtoZ_facre$MODZCTA==j,"Pop_Add"])
   MZtoZ_facre[MZtoZ_facre$MODZCTA==j,"MedInc"] <- sum(MZtoZ_facre[MZtoZ_facre$MODZCTA==j,"S1901_C01_012E"] * 
                                                         MZtoZ_facre[MZtoZ_facre$MODZCTA==j,"Pop_Add"]/
                                                     (sum(MZtoZ_facre[MZtoZ_facre$MODZCTA==j,"Pop_Add"]))
                                                   , na.rm=TRUE)
-  MZtoZ_facre[MZtoZ_facre$MODZCTA==j,"ForeignBorn"] <- sum(MZtoZ_facre[MZtoZ_facre$MODZCTA==j,"DP02_0093E"] * 
+  MZtoZ_facre[MZtoZ_facre$MODZCTA==j,"ForeignBorn"] <- sum(MZtoZ_facre[MZtoZ_facre$MODZCTA==j,"Foreign"] * 
                                                         MZtoZ_facre[MZtoZ_facre$MODZCTA==j,"Pop_Add"]/
                                                         (sum(MZtoZ_facre[MZtoZ_facre$MODZCTA==j,"Pop_Add"]))
                                                       , na.rm=TRUE)
@@ -91,14 +102,36 @@ for (j in MZtoZ_facre$MODZCTA){
 }
 
 # Merge MZtoZ_facre data with MODZCTA shapefile
-modzcta_facre <- mod_zcta %>%
+modzcta_facre <- covid_sf %>%
   left_join(MZtoZ_facre, by = "MODZCTA") %>%
+  # create functional acres per capita if there is a population
   mutate(facre_pc = ifelse(Pop_Add_MODZCTA!=0, 
                             facre / Pop_Add_MODZCTA, 
-                            NA)
+                            NA), 
+         # for the following, input NA if there is no population in the modzcta
+         facre = ifelse(Pop_Add_MODZCTA!=0, 
+                        facre, 
+                        NA), 
+         hrs_per_facre = ifelse(Pop_Add_MODZCTA!=0, 
+                                hrs_per_facre, 
+                                NA), 
+         Pop_Add_MODZCTA = ifelse(Pop_Add_MODZCTA!=0, 
+                                  Pop_Add_MODZCTA, 
+                                  NA), 
+         MedInc = ifelse(MedInc!=0, 
+                         MedInc, 
+                         NA), 
+         ForeignBorn = ifelse(ForeignBorn!=0, 
+                              ForeignBorn, 
+                              NA), 
+         NH_White = ifelse(NH_White!=0, 
+                           NH_White, 
+                           NA)
   ) %>%
-  select(c("MODZCTA", "facre", "Pop_Add_MODZCTA", "MedInc", "ForeignBorn", "NH_White", "facre_pc")) %>%
+  select(c("MODZCTA", "NEIGHBORHOOD_NAME", "BOROUGH_GROUP", "COVID_DEATH_RATE", "facre", "hrs_per_facre", "Pop_Add_MODZCTA", "MedInc", "ForeignBorn", "NH_White", "facre_pc")) %>%
   unique()
 
 st_write(modzcta_facre, "data/processed/modzcta_facre.geojson",  
          driver='GeoJSON', delete_dsn=TRUE)
+
+
