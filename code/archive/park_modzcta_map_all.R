@@ -81,6 +81,32 @@ leaflet() %>%
             title =  "Median Household Income")
 
 
+### Born in USA ------------------------------
+pal = colorBin(
+  # five green (positive)
+  palette = "Greens",
+  bins = c(29,55,65,75,80,97),
+  domain = 100-modzcta_facre$ForeignBorn, 
+  na.color = "Grey"
+)
+
+leaflet() %>%
+  setView(-73.935242,40.730610,10) %>%
+  addProviderTiles("CartoDB.Positron") %>%
+  addPolygons(data=modzcta_facre,
+              weight = 1,
+              color = "grey",
+              stroke = FALSE,
+              fillColor = ~pal(100-ForeignBorn),
+              fillOpacity = 0.9, 
+              popup = lapply(labels_facre,HTML)) %>% 
+  addLegend(position ="bottomright", 
+            pal = pal, 
+            opacity = 0.9,
+            values = 100-modzcta_facre$ForeignBorn,
+            title =  "Born in USA")
+
+
 ### Non-Hispanic White ------------------------------
 pal = colorBin(
   # five green (positive)
@@ -131,3 +157,30 @@ leaflet() %>%
             opacity = 0.9,
             values = modzcta_facre$COVID_DEATH_RATE,
             title =  "Covid Death Rate Per 100,000 Residents")
+
+### Hours Worked Per Functional Acre
+
+pal = colorBin(
+  # five green (positive)
+  palette = "Greens",
+  bins = c(0,15,25,45,70,200),
+  domain = modzcta_facre$hrs_per_facre, 
+  na.color = "Grey"
+)
+
+leaflet() %>%
+  setView(-73.935242,40.730610,10) %>%
+  addProviderTiles("CartoDB.Positron") %>%
+  addPolygons(data=modzcta_facre,
+              weight = 1,
+              color = "grey",
+              stroke = FALSE,
+              fillColor = ~pal(hrs_per_facre),
+              fillOpacity = 0.9, 
+              popup = lapply(labels_facre,HTML)) %>% 
+  addLegend(position ="bottomright", 
+            pal = pal, 
+            opacity = 0.9,
+            values = modzcta_facre$hrs_per_facre,
+            title =  "Hours Worked Per</br>Functional Acre (2021)")
+
