@@ -45,7 +45,7 @@ ggplot(aes(x=rank(facre_pc), y=100-ForeignBorn)) +
   labs(
     title = "Park Equity: MODZCTA Park Access and Born in USA",
     x = "Least to Most Functional Acreage Per Capita (Rank)",
-    y = "Born in USA", 
+    y = "Born in USA (%)", 
     caption = expression(paste(italic("Source: ACS; NYC Parks: Walk-to-a-Park Service Area")))
   ) +
   facet_wrap(~BOROUGH_GROUP) + 
@@ -67,7 +67,7 @@ ggplot(aes(x=rank(facre_pc), y=NH_White)) +
   labs(
     title = "Park Equity: MODZCTA Park Access and Non-Hispanic White",
     x = "Least to Most Functional Acreage Per Capita (Rank)",
-    y = "Non-Hispanic White", 
+    y = "Non-Hispanic White (%)", 
     caption = expression(paste(italic("Source: ACS; NYC Parks: Walk-to-a-Park Service Area")))
   ) +
   facet_wrap(~BOROUGH_GROUP) + 
@@ -84,14 +84,14 @@ ggplot(aes(x=rank(facre_pc), y=NH_White)) +
 ##################################################################################################################################
 ### Correlation Plots: Total Hours Per Functional Acreage
 
-# MODZCTA Park Access and Median Household Income
+# MODZCTA Hours Worked Per Functional Acre and Median Household Income
 modzcta_facre %>%
   filter(Pop_Add_MODZCTA !=0) %>%
 ggplot(aes(x=rank(hrs_per_facre), y=MedInc)) + 
   geom_point() + 
   labs(
-    title = "Park Equity: MODZCTA Park Access and Median Household Income",
-    x = "Least to Most Functional Acreage Per Capita (Rank)",
+    title = "Park Equity: MODZCTA Hours Worked Per Functional Acre and Median Household Income",
+    x = "Least to Most Hours Worked Per Functional Acre (Rank)",
     y = "Median Household Income", 
     caption = expression(paste(italic("Source: ACS; NYC Parks: Walk-to-a-Park Service Area")))
   ) +
@@ -106,14 +106,14 @@ ggplot(aes(x=rank(hrs_per_facre), y=MedInc)) +
     x.text.angle = 0
   ) 
 
-# MODZCTA Park Access and Born in USA
+# MODZCTA Hours Worked Per Functional Acre and Born in USA
 modzcta_facre %>%
   filter(Pop_Add_MODZCTA !=0) %>%
 ggplot(aes(x=rank(hrs_per_facre), y=1-ForeignBorn)) + 
   geom_point() + 
   labs(
-    title = "Park Equity: MODZCTA Park Access and Born in USA",
-    x = "Least to Most Functional Acreage Per Capita (Rank)",
+    title = "Park Equity: MODZCTA Hours Worked Per Functional Acre and Born in USA",
+    x = "Least to Most Hours Worked Per Functional Acre (Rank)",
     y = "Born in USA", 
     caption = expression(paste(italic("Source: ACS; NYC Parks: Walk-to-a-Park Service Area")))
   ) +
@@ -128,14 +128,14 @@ ggplot(aes(x=rank(hrs_per_facre), y=1-ForeignBorn)) +
     x.text.angle = 0
   ) 
 
-# MODZCTA Park Access and Non-Hispanic White
+# MODZCTA Hours Worked Per Functional Acre and Non-Hispanic White
 modzcta_facre %>%
   filter(Pop_Add_MODZCTA !=0) %>%
 ggplot(aes(x=rank(hrs_per_facre), y=NH_White)) + 
   geom_point() + 
   labs(
-    title = "Park Equity: MODZCTA Park Access and Non-Hispanic White",
-    x = "Least to Most Functional Acreage Per Capita (Rank)",
+    title = "Park Equity: MODZCTA Hours Worked Per Functional Acre and Non-Hispanic White",
+    x = "Least to Most Hours Worked Per Functional Acre (Rank)",
     y = "Non-Hispanic White", 
     caption = expression(paste(italic("Source: ACS; NYC Parks: Walk-to-a-Park Service Area")))
   ) +
