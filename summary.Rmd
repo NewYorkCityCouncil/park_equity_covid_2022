@@ -21,8 +21,11 @@ knitr::knit_hooks$set(embed = hook_pdfembed)
 knitr::opts_chunk$set(echo = FALSE, embed = TRUE)
 knitr::opts_knit$set(root.dir = here::here())
 ```
+## Oversight Hearing Topic Summary
 
+Recent reports by various advocacy groups have highlighted the inequities faced by the parks system. Specifically, in lower income neighborhoods, where the COVID infection rates were high have been shown to be without quality access to open space when compared to neighborhoods with higher average incomes and lower COVID rates. report by the Trust for Public Land found that parks in low-income and minority neighborhoods across the city are often smaller, making it more difficult to spread out and keep a distance from others. 
 
+The following maps and charts highlight these disparities:
 
 ```{r same, include=F, echo=F}
 modzcta_facre <- st_read("data/processed/modzcta_facre.geojson") 
@@ -48,11 +51,15 @@ labels_facre <- paste("<h3>","Neighborhood: ", modzcta_facre$NEIGHBORHOOD_NAME, 
 )
 ```
 
+
 ## Distribution of Park Equity Measures Across the City
 
 ### Park Acreage by Zipcode
 
-Description
+The map below illustrates the amount of park acreage per 100,000 residents that exists in each zip code throughout the entire City. Zip codes are colored in varying shades of green with darker areas indicating greater amounts of park acreage compared to lighter shaded areas. The purple outline indicates zip codes in the bottom 25% of park access in the City. Park access is the amount of functional park acreage available to a resident within a 10 minute walk. While each borough has at least one zip code in the bottom 25% of park access, the cluster of zip codes in Queens that includes Elmhurst and Jackson Heights stands out. 
+
+<br>
+
 ```{r acres, echo=FALSE, fig.fullwidth=TRUE, fig.width=10}
 # each pal uses: ~ 25%, 50%, 75%, 90%, 100%
 # ex: quantile(modzcta_facre$MedInc, seq(0,1,0.05), na.rm = TRUE)
@@ -102,15 +109,66 @@ leaflet(options = leafletOptions(zoomControl = FALSE)) %>%
   addControl(park_access, position = "topleft") 
 ```
 
+<br>
+
 ***
+
+<br>
+
+### Park Acreage by Zipcode
+
+The map below illustrates the number of COVID-19 deaths per 100,000 people that exists in each zip code throughout the entire City. Zip codes are colored in varying shades of blue with darker areas indicating higher COVID-19 death rates compared to lighter shaded areas. The red outline indicates that the zip code is in the bottom 25% of park access in the City. Several zip codes with higher number of COVID-19 death rates also are in the bottom 25% of park access. For example, Jackson Heights has the 16th highest COVID-19 death rate at 699 deaths per 100,000 and the 6th lowest park access at 5 acres per 100,000 residents.  
+
+<br>
+
+
+
+```{r covid acres, echo=FALSE, fig.fullwidth=TRUE, fig.width=10}
+### Covid Death Rate Per 100,000 Residents ----
+park_access<- HTML('<div style="color: #800000;"> <strong>Bottom 25%</strong> <br> Park Access</div> <div><small>(Ten Minute Walk)</div>')
+
+pal = colorBin(
+  # five green (positive)
+  palette = c('#d1dff6', '#afbdef', '#8b9ce7', '#617ddf', '#1d5fd6'),
+  bins = c(10,350,450,550,650,1500),
+  domain = modzcta_facre$COVID_DEATH_RATE, 
+  na.color = "#CACACA"
+)
+
+leaflet(options = leafletOptions(zoomControl = FALSE)) %>%
+  htmlwidgets::onRender("function(el, x) {
+        L.control.zoom({ position: 'topright' }).addTo(this)
+    }") %>%
+  setView(-73.984865,40.710542,11) %>%
+  setMapWidgetStyle(list(background= "white")) %>% 
+  addPolygons(data = modzcta_facre, weight = 1, opacity = 0.5,
+              color = ~pal(COVID_DEATH_RATE), 
+              fillColor = ~pal(COVID_DEATH_RATE),
+              fillOpacity = 0.9, popup = lapply(labels_facre,HTML)) %>% 
+  addPolygons(data = recode, weight = 2, fill=F, opacity = 1,
+              color = "#800000", stroke = recode$bottom25) %>% 
+  addPolygons(data=boro, stroke = T, fill=F, color = "#666666", weight = 1) %>%
+  addLegend(position ="topleft", 
+            pal = pal, 
+            opacity = 0.9,
+            values = modzcta_facre$COVID_DEATH_RATE,
+        title =  "<strong>COVID Death Rate</strong></br>Per 100,000 Residents<hr>") %>%
+  addControl(rr, position = "bottomright") %>% 
+  addControl(park_access, position = "topleft")
+
+```
 
 <br>
 
 ***
 
+<br>
+
 ### Median Household Income
 
-Description
+The map below illustrates the median household income in each zip code throughout the entire City. Zip codes are colored in varying shades of blue with darker areas indicating higher median incomes compared to lighter shaded areas. The red outline indicates that the zip code is in the bottom 25% of park access in the City. Zip codes that are both a lighter shade of blue and outlined in red have a lower median household income and are in the bottom 25% of park access. For example, Morris Heights/Mount Hope/University Heights has a median household income of $29,136 and access to 22.8 acres per 100,000 residents.
+
+<br>
 ```{r MHI, echo=FALSE, fig.fullwidth=TRUE, fig.width=10}
 ### Median Household Income ------------------------------
 
@@ -148,15 +206,19 @@ leaflet(options = leafletOptions(zoomControl = FALSE)) %>%
   
 ```
 
-***
 
 <br>
 
 ***
 
+<br>
+
 ### Race
 
-Description
+The map below illustrates the percentage of non-Hispanic white residents in each zip code throughout the entire City. Zip codes are colored in varying shades of brown with darker areas indicating higher percentage of non-Hispanic white residents compared to lighter shaded areas. Zip codes that are both a lighter shade of brown and outlined in purple have a lower percentage of non-Hispanic white residents and are in the bottom 25% of park access. For example, 3.7% of the residents in East Flatbush are non-Hispanic white and they have access to 6.8 acres per 100,000 residents.
+
+<br>
+
 ```{r Race, echo=FALSE, fig.fullwidth=TRUE, fig.width=10}
 ### Non-Hispanic White ------------------------------
 
@@ -202,89 +264,14 @@ leaflet(options = leafletOptions(zoomControl = FALSE)) %>%
 
 ## Relationships Between Park Equity Measures 
 
-### Park Acreage and Non-Hispanic White
-
-Description
-```{r NH White, echo=FALSE, fig.fullwidth=TRUE, fig.width=10}
-# MODZCTA Park Access and Non-Hispanic White --------
- modzcta_facre %>%
-  filter(Pop_Add_MODZCTA !=0) %>%
-ggplot(aes(x=rank(facre_pc), y=NH_White)) + 
-  geom_point() + 
-  scale_y_continuous(labels = scales::percent_format(scale=1)) +
-  ggtitle("Park Equity in NYC", "Comparing Park Acreage and Race for Every Zipcode") +
-  labs(
-    x = "Park Acreage\n (Functional Acreage Per Capita) \n Ranked from Least to Greatest",
-    y = "Non-Hispanic White", 
-    caption = expression(paste(italic("Source: Census ACS; NYC Parks: Walk-to-a-Park Service Area"))) ) +
- # geom_smooth(se = FALSE, color = "grey") +
-  theme(legend.position="right", legend.text = element_text(size=8),
-        legend.title = element_text(size=10, family = 'Georgia'),
-        text = element_text(family = "Open Sans"),
-        panel.grid.major = element_blank(),
-        panel.background = element_blank(),
-        axis.line = element_line(colour = "black"),
-        panel.grid.minor = element_blank(),
-        plot.title = element_text(family = "Georgia",size = 14),
-        axis.title.y = element_text(size = 11, 
-          margin = margin(t = 0, r = 10, b = 0, l = 0)),
-        axis.text.y = element_text(size = 11, 
-                     margin = margin(t = 0, r = 10, b = 0, l = 0)),
-        axis.text.x = element_text(size = 11, 
-                      margin = margin(t = 10, r = 0, b = 0, l = 0)),
-        axis.title.x = element_text(size = 11, 
-          margin = margin(t = 10, r = 0, b = 0, l = 0))) 
-```
-
-***
-
-<br>
-
-***
-
-### Median Income & COVID Death Rate
-
-Description
-```{r MHI_COVID, echo=FALSE, fig.fullwidth=TRUE, fig.width=10}
-# MODZCTA Median Income and Covid Death Rate (SHOW) ----------
- modzcta_facre %>%
-  filter(Pop_Add_MODZCTA !=0) %>%
-  ggplot(aes(x=MedInc, y=COVID_DEATH_RATE)) + 
-  geom_point() + 
-  scale_y_continuous(label = scales::comma_format()) +
-  scale_x_continuous(label = scales::dollar_format()) +
-  ggtitle("Median Income and COVID Death Rate for Every Zipcode") +
-  labs(x = "Median Income", y = "Covid Death Rate (Per 100,000)", 
-    caption = expression(paste(italic("Source: Census ACS; DOHMH"))) ) +
-
-  theme(legend.position="right", legend.text = element_text(size=8),
-        legend.title = element_text(size=10, family = 'Georgia'),
-        text = element_text(family = "Open Sans"),
-        panel.grid.major = element_blank(),
-        panel.background = element_blank(),
-        axis.line = element_line(colour = "black"),
-        panel.grid.minor = element_blank(),
-        plot.title = element_text(family = "Georgia",size = 14),
-        axis.title.y = element_text(size = 11, 
-                       margin = margin(t = 0, r = 10, b = 0, l = 0)),
-        axis.text.y = element_text(size = 11, 
-                       margin = margin(t = 0, r = 10, b = 0, l = 0)),
-        axis.text.x = element_text(size = 11, 
-                         margin = margin(t = 10, r = 0, b = 0, l = 0)),
-        axis.title.x = element_text(size = 11, 
-                            margin = margin(t = 10, r = 0, b = 0, l = 0))) 
-
-```
-
-***
-
-<br>
-
-***
+The following visualizations depict the relationships between park acreage per capita, COVID-19 death rate, median income, and percentage of non-Hispanic white residents based on zip code:
 
 ### Park Acreage, Median Income & COVID Death Rate
 
-Description
+The chart below indicates COVID-19 death rates, park acreage per capita  and median household incomes in each zip code. Zip codes with lower incomes are red and zip codes with higher incomes are blue. A darker shade of blue or red indicates the zip code is further from the average. The dashed vertical line marks the median park acreage per capita, where zip codes to the right of the line have more park acreage per capita than the median and zip codes to the left have less park acreage per capita than the median. The horizontal line marks the median COVID-19 death rate in the City with zip codes above the line have a higher COVID-19 death rate than the median and zip codes below the line have a lower COVID-19 death rate than the City. The four quadrants of the plot denote whether a zip code located in it has low (or high) park access and a low (or high) COVID-19 death rate. 
+
+It is notable that most zip codes with a below average household income have an above average COVID-19 death rate (the top half of the graph is mostly red.) In addition, there is a slight negative relationship between COVID-19 death rate and park acreage per capita. The lower right quadrant, which contains zip codes with high park access and a low COVID-19 death rate, is denser and contains a higher proportion of blue zip codes than the lower left quadrant, which contain zip codes with low park access and a low COVID-19 death rate.
+
 ```{r park_covid_mhi, echo=FALSE, fig.fullwidth=TRUE, fig.width=10}
 # MODZCTA Park Access and Covid Death Rate and Median Income (SHOW) ---------
 mid<-median(modzcta_facre$MedInc, na.rm=TRUE)
@@ -338,3 +325,96 @@ m <- modzcta_facre %>%
                                     margin = margin(t = 10, r = 0, b = 0, l = 0))) 
 
 ```
+
+<br>
+
+***
+
+<br>
+
+### Park Acreage and Non-Hispanic White
+
+While median income and COVID death rates show a clear negative relationship, the chart above has a very slight upward trend. It compares park acreage per capita to the percentage of non-Hispanic white residents. It shows zip codes with the lowest park acreage per capita have a slightly lower percentage of non-Hispanic white residents compared to zip codes with the highest park acreage per capita. 
+<br>
+
+```{r NH White, echo=FALSE, fig.fullwidth=TRUE, fig.width=10}
+# MODZCTA Park Access and Non-Hispanic White --------
+ modzcta_facre %>%
+  filter(Pop_Add_MODZCTA !=0) %>%
+ggplot(aes(x=rank(facre_pc), y=NH_White)) + 
+  geom_point() + 
+  scale_y_continuous(labels = scales::percent_format(scale=1)) +
+  ggtitle("Park Equity in NYC", "Comparing Park Acreage and Race for Every Zipcode") +
+  labs(
+    x = "Park Acreage\n (Functional Acreage Per Capita) \n Ranked from Least to Greatest",
+    y = "Non-Hispanic White", 
+    caption = expression(paste(italic("Source: Census ACS; NYC Parks: Walk-to-a-Park Service Area"))) ) +
+ # geom_smooth(se = FALSE, color = "grey") +
+  theme(legend.position="right", legend.text = element_text(size=8),
+        legend.title = element_text(size=10, family = 'Georgia'),
+        text = element_text(family = "Open Sans"),
+        panel.grid.major = element_blank(),
+        panel.background = element_blank(),
+        axis.line = element_line(colour = "black"),
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(family = "Georgia",size = 14),
+        axis.title.y = element_text(size = 11, 
+          margin = margin(t = 0, r = 10, b = 0, l = 0)),
+        axis.text.y = element_text(size = 11, 
+                     margin = margin(t = 0, r = 10, b = 0, l = 0)),
+        axis.text.x = element_text(size = 11, 
+                      margin = margin(t = 10, r = 0, b = 0, l = 0)),
+        axis.title.x = element_text(size = 11, 
+          margin = margin(t = 10, r = 0, b = 0, l = 0))) 
+```
+
+
+<br>
+
+***
+
+<br>
+
+### Median Income & COVID Death Rate
+
+The chart above displays the relationship between median household income and COVID-19 death rate and shows that lower income zip codes tend to have the highest COVID-19 death rates and higher income zip codes have the lowest COVID-19 death rates.  
+
+<br>
+
+```{r MHI_COVID, echo=FALSE, fig.fullwidth=TRUE, fig.width=10}
+# MODZCTA Median Income and Covid Death Rate (SHOW) ----------
+ modzcta_facre %>%
+  filter(Pop_Add_MODZCTA !=0) %>%
+  ggplot(aes(x=MedInc, y=COVID_DEATH_RATE)) + 
+  geom_point() + 
+  scale_y_continuous(label = scales::comma_format()) +
+  scale_x_continuous(label = scales::dollar_format()) +
+  ggtitle("Median Income and COVID Death Rate for Every Zipcode") +
+  labs(x = "Median Income", y = "Covid Death Rate (Per 100,000)", 
+    caption = expression(paste(italic("Source: Census ACS; DOHMH"))) ) +
+
+  theme(legend.position="right", legend.text = element_text(size=8),
+        legend.title = element_text(size=10, family = 'Georgia'),
+        text = element_text(family = "Open Sans"),
+        panel.grid.major = element_blank(),
+        panel.background = element_blank(),
+        axis.line = element_line(colour = "black"),
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(family = "Georgia",size = 14),
+        axis.title.y = element_text(size = 11, 
+                       margin = margin(t = 0, r = 10, b = 0, l = 0)),
+        axis.text.y = element_text(size = 11, 
+                       margin = margin(t = 0, r = 10, b = 0, l = 0)),
+        axis.text.x = element_text(size = 11, 
+                         margin = margin(t = 10, r = 0, b = 0, l = 0)),
+        axis.title.x = element_text(size = 11, 
+                            margin = margin(t = 10, r = 0, b = 0, l = 0))) 
+
+```
+
+<br>
+
+***
+
+<br>
+
