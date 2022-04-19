@@ -52,7 +52,8 @@ leaflet() %>%
             pal = pal, 
             opacity = 0.9,
             values = modzcta_facre$facre_pc * 100000,
-            title =  "Functional Acres Per 100,000 Residents")
+            title =  "Functional Acres</br>Per 100,000 Residents") %>%
+  addLegend(type = "line", labels = "Cemeteries were excluded")
 
 
 ### Median Household Income ------------------------------
@@ -78,7 +79,7 @@ leaflet() %>%
             pal = pal, 
             opacity = 0.9,
             values = modzcta_facre$MedInc,
-            title =  "Median Household Income")
+            title =  "Median Household Income ($)")
 
 
 ### Non-Hispanic White ------------------------------
@@ -93,10 +94,10 @@ pal = colorBin(
 leaflet() %>%
   setView(-73.935242,40.730610,10) %>%
   addProviderTiles("CartoDB.Positron") %>%
-  addPolygons(data=modzcta_facre,
+  addPolygons(data=modzcta_facre%>% mutate(bottom25 = ifelse(facre_pc * 100000 < 25, 1, 0)),
               weight = 1,
-              color = "grey",
-              stroke = TRUE,
+              color = "red",
+              stroke = (modzcta_facre%>% mutate(bottom25 = ifelse(facre_pc * 100000 < 25, 1, 0)))$bottom25,
               fillColor = ~pal(NH_White),
               fillOpacity = 0.9, 
               popup = lapply(labels_facre,HTML)) %>% 
@@ -104,7 +105,7 @@ leaflet() %>%
             pal = pal, 
             opacity = 0.9,
             values = modzcta_facre$NH_White,
-            title =  "Non-Hispanic White")
+            title =  "Non-Hispanic White (%)")
 
 ### Covid Death Rate Per 100,000 Residents
 
@@ -130,4 +131,4 @@ leaflet() %>%
             pal = pal, 
             opacity = 0.9,
             values = modzcta_facre$COVID_DEATH_RATE,
-            title =  "Covid Death Rate Per 100,000 Residents")
+            title =  "Covid Death Rate</br>Per 100,000 Residents")

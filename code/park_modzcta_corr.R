@@ -12,50 +12,21 @@ modzcta_facre <- st_read("data/processed/modzcta_facre.geojson") %>%
   mutate(Krishnan = ifelse(MODZCTA == "11372" | MODZCTA == "11373", 1, 0))
 
 ##################################################################################################################################
-### Correlation Plots: Functional Acreage Per Capita
-
-# MODZCTA Park Access and Median Household Income (SHOW)
-modzcta_facre %>%
-  filter(Pop_Add_MODZCTA !=0) %>%
-ggplot(aes(x=rank(facre_pc), y=MedInc, color=Krishnan)) + 
-  geom_point() + 
-  labs(
-    title = "Park Equity: Park Access and Median Household Income (MODZCTA)",
-    x = "Least to Most Functional Acreage Per Capita (Rank)",
-    y = "Median Household Income ($)", 
-    caption = expression(paste(italic("Source: ACS; NYC Parks: Walk-to-a-Park Service Area")))
-  ) +
-  #facet_wrap(~BOROUGH_GROUP) + 
-  #geom_smooth(se = FALSE) +
-  geom_vline(xintercept = 150, linetype = "dashed") + 
-  geom_hline(yintercept = 155000, linetype = "dashed") + 
-  ggpubr::theme_pubr(
-    base_size = 12,
-    base_family = "",
-    border = TRUE,
-    margin = TRUE,
-    legend = c("none"),
-    x.text.angle = 0
-  ) 
-
-# add vertical for 150 rank, 150000k income
-
-# Notes:
-# For Brooklyn, positive relationship until 2 with the most facre_pc: East New York; Brighton Beach/Coney Island/Seagate
+### Correlation Plots
 
 # MODZCTA Park Access and Non-Hispanic White
 modzcta_facre %>%
   filter(Pop_Add_MODZCTA !=0) %>%
-ggplot(aes(x=rank(facre_pc), y=NH_White, color=Krishnan)) + 
+ggplot(aes(x=rank(facre_pc), y=NH_White)) + 
   geom_point() + 
+  ggtitle("Park Equity & Race", "Comparing Park Access and Race by Zipcode") +
   labs(
-    title = "Park Equity: MODZCTA Park Access and Non-Hispanic White",
     x = "Least to Most Functional Acreage Per Capita (Rank)",
     y = "Non-Hispanic White (%)", 
     caption = expression(paste(italic("Source: ACS; NYC Parks: Walk-to-a-Park Service Area")))
   ) +
-  facet_wrap(~BOROUGH_GROUP) + 
-  geom_smooth(se = FALSE, color = "blue") +
+#  facet_wrap(~BOROUGH_GROUP) + 
+#  geom_smooth(se = FALSE, color = "blue") +
   ggpubr::theme_pubr(
     base_size = 12,
     base_family = "",
@@ -65,17 +36,13 @@ ggplot(aes(x=rank(facre_pc), y=NH_White, color=Krishnan)) +
     x.text.angle = 0
   ) 
 
-##################################################################################################################################
-### Correlation Plots: COVID
-
 # MODZCTA Median Income and Covid Death Rate (SHOW)
-
 modzcta_facre %>%
   filter(Pop_Add_MODZCTA !=0) %>%
-  ggplot(aes(x=MedInc, y=COVID_DEATH_RATE, color=Krishnan)) + 
+  ggplot(aes(x=MedInc, y=COVID_DEATH_RATE)) + 
   geom_point() + 
+  ggtitle("Park Equity & Income", "Comparing Park Access and Median Income by Zipcode") +
   labs(
-    title = "Park Equity: Median Income and Covid Death Rate (MODZCTA)",
     x = "Median Income ($)",
     y = "Covid Death Rate (Per 100,000)", 
     caption = expression(paste(italic("Source: ACS; NYC Parks: Walk-to-a-Park Service Area")))
@@ -98,7 +65,8 @@ mid<-median(modzcta_facre$MedInc, na.rm=TRUE)
 modzcta_facre %>%
   filter(Pop_Add_MODZCTA !=0) %>%
   ggplot(aes(x=rank(facre_pc), y=COVID_DEATH_RATE, color=MedInc)) +
-  geom_point() + ggtitle("Park Equity & COVID", "Comparing Park Access, Covid Death Rates, and Median Income by Zipcode") +
+  geom_point() + 
+  ggtitle("Park Equity & COVID", "Comparing Park Access, Covid Death Rates, and Median Income by Zipcode") +
   labs(
     x = "Park Access: Functional Acreage Per Capita (Rank)",
     y = "Covid Death Rate (Per 100,000)",
@@ -115,7 +83,7 @@ modzcta_facre %>%
   annotate("text", x = 125, y = 1350, label = "High Park Access\nHigh Covid") +
   annotate("text", x = 25, y = 50, label = "Low Park Access\nLow Covid") +
   annotate("text", x = 125, y = 50, label = "High Park Access\nLow Covid") +
-  geom_smooth(se = FALSE, method = lm) +
+#  geom_smooth(se = FALSE, method = lm) +
   ggpubr::theme_pubr(
     base_size = 11,
     #base_family = "Open Sans",
