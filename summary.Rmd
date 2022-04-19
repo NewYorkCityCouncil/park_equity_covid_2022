@@ -1,0 +1,340 @@
+---
+title: "Pay Equity & Covid 2022 Hearing"
+author: "Data Team"
+date: "`r councildown::pretty_date()`"
+fontsize: 11pt
+output:
+  html_document:
+    css: style.css
+subparagraph: yes
+compact-title: yes
+---
+
+```{r setup, include=FALSE, echo=FALSE}
+library(councildown)
+library(knitr)
+
+source("code/load_dependencies.R")
+
+extrafont::loadfonts()
+knitr::knit_hooks$set(embed = hook_pdfembed)
+knitr::opts_chunk$set(echo = FALSE, embed = TRUE)
+knitr::opts_knit$set(root.dir = here::here())
+```
+
+
+
+```{r same, include=F, echo=F}
+modzcta_facre <- st_read("data/processed/modzcta_facre.geojson") 
+
+boro <- read_sf("https://data.cityofnewyork.us/api/geospatial/tqmj-j8zm?method=export&format=GeoJSON") %>% 
+  st_transform("+proj=longlat +datum=WGS84") %>% 
+  st_simplify(dTolerance = .00001)
+
+################################################################################################################################################
+### Demographic Maps
+
+# labels for all the maps
+labels_facre <- paste("<h3>","Neighborhood: ", modzcta_facre$NEIGHBORHOOD_NAME, "</h3>",
+                      "<p>","(Modified) Zip Code: ", modzcta_facre$MODZCTA, "</p>",
+                      "<p>","Functional Acres: ", round(modzcta_facre$facre, 1),"</p>", 
+                      "<p>","Functional Acres Per 10,000 Residents: ", round(modzcta_facre$facre_pc * 100000, 1),"</p>",
+                      "<p>",paste0("Hours Worked Per Functional Acre: ", round(modzcta_facre$hrs_per_facre, 1)),"</p>",
+                      "<p>",paste0("Population: ", round(modzcta_facre$Pop_Add_MODZCTA, 0)),"</p>", 
+                      "<p>",paste0("Median Income: ", round(modzcta_facre$MedInc, 0)),"</p>", 
+                      "<p>",paste0("Born in USA (%): ", round(100-modzcta_facre$ForeignBorn, 1)),"</p>", 
+                      "<p>",paste0("Non-Hispanic White (%): ", round(modzcta_facre$NH_White, 1)),"</p>"
+                      
+)
+```
+
+## Distribution of Park Equity Measures Across the City
+
+### Park Acreage by Zipcode
+
+Description
+```{r acres, echo=FALSE, fig.fullwidth=TRUE, fig.width=10}
+# each pal uses: ~ 25%, 50%, 75%, 90%, 100%
+# ex: quantile(modzcta_facre$MedInc, seq(0,1,0.05), na.rm = TRUE)
+# ex: quantile(modzcta_facre$facre_pc * 100000, seq(0,1,0.05), na.rm = TRUE)
+
+### Functional Acres Per 100,000 Residents ------------------------------ 
+# map options defined
+
+
+# color palette
+pal = colorBin(
+  # five green (positive)
+  palette = c('#eaf5ef', '#b6d4bd', '#83b48d', '#4f9560', '#007534'),
+  bins = c(0,25,80,150,450,4500),
+  domain = modzcta_facre$facre_pc * 100000, 
+  na.color = "#CACACA"
+)
+# park_access outline
+recode <- modzcta_facre %>% 
+  mutate(bottom25 = ifelse(facre_pc * 100000 < 25, 1, 0))
+
+# source control
+rr <- HTML('<small> Source: Census ACS Table, NYC Parks, NYC DOHMH </small>')
+
+# park_accesslegend  
+park_access<- HTML('<div style="color: #8744BC;"> <strong>Bottom 25%</strong> <br>  Park Access</div> <div><small>(Ten Minute Walk)</div>')
+
+### leaflet map
+
+leaflet(options = leafletOptions(zoomControl = FALSE)) %>%
+  htmlwidgets::onRender("function(el, x) {
+        L.control.zoom({ position: 'topright' }).addTo(this)
+    }") %>%
+  setView(-73.984865,40.710542,11) %>%
+  setMapWidgetStyle(list(background= "white")) %>% 
+  addPolygons(data = modzcta_facre, weight = 1, opacity = 0.5,
+              color = ~pal(facre_pc * 100000), 
+              fillColor = ~pal(facre_pc * 100000),
+              fillOpacity = 0.9, popup = lapply(labels_facre,HTML)) %>% 
+  addPolygons(data = recode, weight = 2, fill=F, opacity = 1,
+              color = "#8744BC", stroke = recode$bottom25) %>% 
+  addPolygons(data=boro, stroke = T, fill=F, color = "#666666", weight = 1) %>%
+  addLegend(position ="topleft", pal = pal, 
+            opacity = 0.9, values = modzcta_facre$facre_pc * 100000,
+            title =  "<strong>Park Acreage:<strong><hr><small>Functional Acres <br> Per 100,000 Residents</small>") %>% 
+  addControl(rr, position = "bottomright") %>% 
+  addControl(park_access, position = "topleft") 
+```
+
+***
+
+<br>
+
+***
+
+### Median Household Income
+
+Description
+```{r MHI, echo=FALSE, fig.fullwidth=TRUE, fig.width=10}
+### Median Household Income ------------------------------
+
+# park_access legend  
+park_access<- HTML('<div style="color: #800000;"> <strong>Bottom 25%</strong> <br> Park Access</div> <div><small>(Ten Minute Walk)</div>')
+
+pal = colorBin(
+  palette = c('#d5dded', '#afb9db', '#8996ca', '#6175b8', '#2f56a6'),
+  bins = c(0,55000,70000,95000,130000,260000),
+  domain = modzcta_facre$MedInc, 
+  na.color = "#CACACA"
+)
+
+leaflet(options = leafletOptions(zoomControl = FALSE)) %>%
+  htmlwidgets::onRender("function(el, x) {
+        L.control.zoom({ position: 'topright' }).addTo(this)
+    }") %>%
+  setView(-73.984865,40.710542,11) %>%
+  setMapWidgetStyle(list(background= "white")) %>% 
+  addPolygons(data = modzcta_facre, weight = 1, opacity = 0.5,
+              color = ~pal(MedInc), 
+              fillColor = ~pal(MedInc),
+              fillOpacity = 0.9, popup = lapply(labels_facre,HTML)) %>% 
+  addPolygons(data = recode, weight = 2, fill=F, opacity = 1,
+              color = "#800000", stroke = recode$bottom25) %>% 
+  addPolygons(data=boro, stroke = T, fill=F, color = "#666666", weight = 1) %>%
+  addLegend(position ="topleft", 
+            pal = pal, 
+            opacity = 0.9,
+            values = modzcta_facre$MedInc,
+            title =  "<strong>Median Household Income<hr>",
+            labFormat = labelFormat(prefix = "$", big.mark = ",", between = ' &ndash;  $')) %>% 
+  addControl(rr, position = "bottomright") %>% 
+  addControl(park_access, position = "topleft") 
+  
+```
+
+***
+
+<br>
+
+***
+
+### Race
+
+Description
+```{r Race, echo=FALSE, fig.fullwidth=TRUE, fig.width=10}
+### Non-Hispanic White ------------------------------
+
+park_access<- HTML('<div style="color: #8744BC;"> <strong>Bottom 25%</strong> <br> Park Access</div> <div><small>(Ten Minute Walk)</div>')
+
+pal = colorBin(
+  # five green (positive)
+  palette = c('#e6dfd3', '#cfbea5', '#b79e7a', '#9e7f4f', '#846126'),
+  bins = c(0,15,35,60,70,92),
+  domain = modzcta_facre$NH_White, 
+  na.color = "#F9F9F9"
+)
+
+
+leaflet(options = leafletOptions(zoomControl = FALSE)) %>%
+  htmlwidgets::onRender("function(el, x) {
+        L.control.zoom({ position: 'topright' }).addTo(this)
+    }") %>%
+  setView(-73.984865,40.710542,11) %>%
+  setMapWidgetStyle(list(background= "white")) %>% 
+  addPolygons(data = modzcta_facre, weight = 1, opacity = 0.5,
+              color = ~pal(NH_White), 
+              fillColor = ~pal(NH_White),
+              fillOpacity = 0.9, popup = lapply(labels_facre,HTML)) %>% 
+  addPolygons(data = recode, weight = 2, fill=F, opacity = 1,
+              color = "#8744BC", stroke = recode$bottom25) %>% 
+  addPolygons(data=boro, stroke = T, fill=F, color = "#666666", weight = 1) %>%
+  addLegend(position ="topleft", 
+            pal = pal, 
+            opacity = 0.9,
+            values = modzcta_facre$NH_White,
+            title =  "<strong>Non-Hispanic White<hr>",
+            labFormat = labelFormat(suffix = "%",  between = '% &ndash; ')) %>%
+  addControl(rr, position = "bottomright") %>% 
+  addControl(park_access,position = "topleft")
+```
+
+***
+
+<br>
+
+***
+
+## Relationships Between Park Equity Measures 
+
+### Park Acreage and Non-Hispanic White
+
+Description
+```{r NH White, echo=FALSE, fig.fullwidth=TRUE, fig.width=10}
+# MODZCTA Park Access and Non-Hispanic White --------
+ modzcta_facre %>%
+  filter(Pop_Add_MODZCTA !=0) %>%
+ggplot(aes(x=rank(facre_pc), y=NH_White)) + 
+  geom_point() + 
+  scale_y_continuous(labels = scales::percent_format(scale=1)) +
+  ggtitle("Park Equity in NYC", "Comparing Park Acreage and Race for Every Zipcode") +
+  labs(
+    x = "Park Acreage\n (Functional Acreage Per Capita) \n Ranked from Least to Greatest",
+    y = "Non-Hispanic White", 
+    caption = expression(paste(italic("Source: Census ACS; NYC Parks: Walk-to-a-Park Service Area"))) ) +
+ # geom_smooth(se = FALSE, color = "grey") +
+  theme(legend.position="right", legend.text = element_text(size=8),
+        legend.title = element_text(size=10, family = 'Georgia'),
+        text = element_text(family = "Open Sans"),
+        panel.grid.major = element_blank(),
+        panel.background = element_blank(),
+        axis.line = element_line(colour = "black"),
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(family = "Georgia",size = 14),
+        axis.title.y = element_text(size = 11, 
+          margin = margin(t = 0, r = 10, b = 0, l = 0)),
+        axis.text.y = element_text(size = 11, 
+                     margin = margin(t = 0, r = 10, b = 0, l = 0)),
+        axis.text.x = element_text(size = 11, 
+                      margin = margin(t = 10, r = 0, b = 0, l = 0)),
+        axis.title.x = element_text(size = 11, 
+          margin = margin(t = 10, r = 0, b = 0, l = 0))) 
+```
+
+***
+
+<br>
+
+***
+
+### Median Income & COVID Death Rate
+
+Description
+```{r MHI_COVID, echo=FALSE, fig.fullwidth=TRUE, fig.width=10}
+# MODZCTA Median Income and Covid Death Rate (SHOW) ----------
+ modzcta_facre %>%
+  filter(Pop_Add_MODZCTA !=0) %>%
+  ggplot(aes(x=MedInc, y=COVID_DEATH_RATE)) + 
+  geom_point() + 
+  scale_y_continuous(label = scales::comma_format()) +
+  scale_x_continuous(label = scales::dollar_format()) +
+  ggtitle("Median Income and COVID Death Rate for Every Zipcode") +
+  labs(x = "Median Income", y = "Covid Death Rate (Per 100,000)", 
+    caption = expression(paste(italic("Source: Census ACS; DOHMH"))) ) +
+
+  theme(legend.position="right", legend.text = element_text(size=8),
+        legend.title = element_text(size=10, family = 'Georgia'),
+        text = element_text(family = "Open Sans"),
+        panel.grid.major = element_blank(),
+        panel.background = element_blank(),
+        axis.line = element_line(colour = "black"),
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(family = "Georgia",size = 14),
+        axis.title.y = element_text(size = 11, 
+                       margin = margin(t = 0, r = 10, b = 0, l = 0)),
+        axis.text.y = element_text(size = 11, 
+                       margin = margin(t = 0, r = 10, b = 0, l = 0)),
+        axis.text.x = element_text(size = 11, 
+                         margin = margin(t = 10, r = 0, b = 0, l = 0)),
+        axis.title.x = element_text(size = 11, 
+                            margin = margin(t = 10, r = 0, b = 0, l = 0))) 
+
+```
+
+***
+
+<br>
+
+***
+
+### Park Acreage, Median Income & COVID Death Rate
+
+Description
+```{r park_covid_mhi, echo=FALSE, fig.fullwidth=TRUE, fig.width=10}
+# MODZCTA Park Access and Covid Death Rate and Median Income (SHOW) ---------
+mid<-median(modzcta_facre$MedInc, na.rm=TRUE)
+
+m <- modzcta_facre %>%
+  filter(Pop_Add_MODZCTA !=0)
+
+  ggplot(data = m, 
+         aes(x=rank(facre_pc), y=COVID_DEATH_RATE, color=MedInc)) +
+  geom_point() + 
+  geom_vline(xintercept = median(rank(modzcta_facre$facre_pc), na.rm=TRUE),
+             color ="#666666",linetype = "dashed") +
+  geom_hline(yintercept = as.numeric(median(modzcta_facre$COVID_DEATH_RATE, na.rm=TRUE)),
+             color ="#666666",linetype = "dashed") +
+  geom_hline(aes(yintercept = as.numeric(median(modzcta_facre$COVID_DEATH_RATE, na.rm=TRUE)), linetype = "Median"), 
+             colour = "#666666") + 
+  scale_linetype_manual(name = NULL, values = 4) +
+  scale_y_continuous(label = scales::comma_format()) +
+  ggtitle("Park Equity in NYC", "Comparing Park Acreage, Covid Death Rates, and Median Income for Every Zipcode") +
+  labs(
+    x = "Park Acreage\n (Functional Acreage Per Capita) \n Ranked from Least to Greatest",
+    y = "Covid Death Rate (Per 100,000)",
+    color = "Median Income",
+    caption = expression(paste(italic("Source: Census ACS; NYC DOHMH; NYC Parks: Walk-to-a-Park Service Area")))
+  ) +
+  scale_color_gradientn(
+    labels = scales::dollar_format(),
+    colours = c('#800000','#DD6C54','#E6E6E6','#AFB3D1','#7683BC','#2F56A6'),
+    values = scales::rescale(c(50000,70000,100000, 150000, 200000, 250000) ) )+
+
+  annotate("text", x = 25, y = 1350, label = "Low Park Access\nHigh Covid") +
+  annotate("text", x = 125, y = 1350, label = "High Park Access\nHigh Covid") +
+  annotate("text", x = 25, y = 50, label = "Low Park Access\nLow Covid") +
+  annotate("text", x = 125, y = 50, label = "High Park Access\nLow Covid") +
+  
+  theme(legend.position="right", legend.text = element_text(size=8),
+        legend.title = element_text(size=10, family = 'Georgia'),
+        text = element_text(family = "Open Sans"),
+        panel.grid.major = element_blank(),
+        panel.background = element_blank(),
+        axis.line = element_line(colour = "black"),
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(family = "Georgia",size = 14),
+        axis.title.y = element_text(size = 11, 
+                                    margin = margin(t = 0, r = 10, b = 0, l = 0)),
+        axis.text.y = element_text(size = 11, 
+                                   margin = margin(t = 0, r = 10, b = 0, l = 0)),
+        axis.text.x = element_text(size = 11, 
+                                   margin = margin(t = 10, r = 0, b = 0, l = 0)),
+        axis.title.x = element_text(size = 11, 
+                                    margin = margin(t = 10, r = 0, b = 0, l = 0))) 
+
+```

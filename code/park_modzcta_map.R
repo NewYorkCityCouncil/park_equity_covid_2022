@@ -29,7 +29,7 @@ labels_facre <- paste("<h3>","Neighborhood: ", modzcta_facre$NEIGHBORHOOD_NAME, 
 # ex: quantile(modzcta_facre$MedInc, seq(0,1,0.05), na.rm = TRUE)
 # ex: quantile(modzcta_facre$facre_pc * 100000, seq(0,1,0.05), na.rm = TRUE)
 
-### Functional Acres Per 100,000 Residents ------------------------------ (SHOW)
+### Functional Acres Per 100,000 Residents ------------------------------ 
 # map options defined
 
 boro <- read_sf("https://data.cityofnewyork.us/api/geospatial/tqmj-j8zm?method=export&format=GeoJSON") %>% 
@@ -111,7 +111,7 @@ leaflet(options = leafletOptions(zoomControl = FALSE)) %>%
             title =  "<strong>Median Household Income<hr>",
             labFormat = labelFormat(prefix = "$", big.mark = ",", between = ' &ndash;  $')) %>% 
   addControl(rr, position = "bottomright") %>% 
-  addControl(park_access,position = "topleft") %>% 
+  addControl(park_access, position = "topleft") %>% 
   
   mapshot(file = "figures/median_income.png", 
           vwidth = 900, vheight = 870)
@@ -120,7 +120,7 @@ leaflet(options = leafletOptions(zoomControl = FALSE)) %>%
 
 ### Non-Hispanic White ------------------------------
 
-park_access<- HTML('<div style="color: #8744BC;"> <strong>Bottom 25%</strong> <br> Park Access</div> <div><small>(As of April 2022)</div>')
+park_access<- HTML('<div style="color: #8744BC;"> <strong>Bottom 25%</strong> <br> Park Access</div> <div><small>(Ten Minute Walk)</div>')
 
 pal = colorBin(
   # five green (positive)
