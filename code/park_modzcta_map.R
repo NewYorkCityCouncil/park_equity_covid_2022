@@ -15,11 +15,12 @@ modzcta_facre <- st_read("data/processed/modzcta_facre.geojson")
 # labels for all the maps
 labels_facre <- paste("<h3>","Neighborhood: ", modzcta_facre$NEIGHBORHOOD_NAME, "</h3>",
                       "<p>","(Modified) Zip Code: ", modzcta_facre$MODZCTA, "</p>",
+                      "<p>","Functional Acres Per 100,000 Residents: ", round(modzcta_facre$facre_pc * 100000, 1),"</p>",
                       "<p>","Functional Acres: ", round(modzcta_facre$facre, 1),"</p>", 
-                      "<p>","Functional Acres Per 10,000 Residents: ", round(modzcta_facre$facre_pc * 100000, 1),"</p>",
+                      "<p>",paste0("COVID-19 Death Rate Per 100,000: ", round(modzcta_facre$COVID_DEATH_RATE, 1)),"</p>", 
                       "<p>",paste0("Hours Worked Per Functional Acre: ", round(modzcta_facre$hrs_per_facre, 1)),"</p>",
                       "<p>",paste0("Population: ", round(modzcta_facre$Pop_Add_MODZCTA, 0)),"</p>", 
-                      "<p>",paste0("Median Income: ", round(modzcta_facre$MedInc, 0)),"</p>", 
+                      "<p>",paste0("Median Income ($): ", round(modzcta_facre$MedInc, 0)),"</p>", 
                       "<p>",paste0("Born in USA (%): ", round(100-modzcta_facre$ForeignBorn, 1)),"</p>", 
                       "<p>",paste0("Non-Hispanic White (%): ", round(modzcta_facre$NH_White, 1)),"</p>"
                       
