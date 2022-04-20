@@ -116,7 +116,7 @@ leaflet(options = leafletOptions(zoomControl = FALSE)) %>%
 
 <br>
 
-### Park Acreage by Zipcode
+### COVID Death Rates by Zipcode
 
 The map below illustrates the number of COVID-19 deaths per 100,000 people that exists in each zip code throughout the entire City. Zip codes are colored in varying shades of blue with darker areas indicating higher COVID-19 death rates compared to lighter shaded areas. The red outline indicates that the zip code is in the bottom 25% of park access in the City. Several zip codes with higher number of COVID-19 death rates also are in the bottom 25% of park access. For example, Jackson Heights has the 16th highest COVID-19 death rate at 699 deaths per 100,000 and the 6th lowest park access at 5 acres per 100,000 residents.  
 
