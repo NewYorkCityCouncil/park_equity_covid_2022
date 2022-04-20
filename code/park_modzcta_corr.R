@@ -14,7 +14,7 @@ modzcta_facre <- st_read("data/processed/modzcta_facre.geojson") %>%
 ##################################################################################################################################
 ### Correlation Plots
 
-# MODZCTA Park Access and Non-Hispanic White
+# MODZCTA Park Access and Non-Hispanic White --------
 plot <- modzcta_facre %>%
   filter(Pop_Add_MODZCTA !=0) %>%
 ggplot(aes(x=rank(facre_pc), y=NH_White)) + 
@@ -46,7 +46,7 @@ ggplot(aes(x=rank(facre_pc), y=NH_White)) +
 ggsave(plot, filename = "figures/acreage_race_scatterplot.png", 
        units = c("in"), width= 10, height= 6)
 
-# MODZCTA Median Income and Covid Death Rate (SHOW)
+# MODZCTA Median Income and Covid Death Rate (SHOW) ----------
 plot <- modzcta_facre %>%
   filter(Pop_Add_MODZCTA !=0) %>%
   ggplot(aes(x=MedInc, y=COVID_DEATH_RATE)) + 
@@ -79,7 +79,7 @@ ggsave(plot, filename = "figures/income_covid_scatterplot.png",
 
 
 
-# MODZCTA Park Access and Covid Death Rate and Median Income (SHOW)
+# MODZCTA Park Access and Covid Death Rate and Median Income (SHOW) ---------
 mid<-median(modzcta_facre$MedInc, na.rm=TRUE)
 
 m <- modzcta_facre %>%
