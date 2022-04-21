@@ -85,13 +85,6 @@ mid<-median(modzcta_facre$MedInc, na.rm=TRUE)
 m <- modzcta_facre %>%
   filter(Pop_Add_MODZCTA !=0)
 
-  geom_vline(aes(xintercept=median(iris$Sepal.Length),
-                 color="median"), linetype="dashed",
-             size=1) +
-  geom_vline(aes(xintercept=mean(iris$Sepal.Length),
-                 color="mean"), linetype="dashed",
-             size=1)
-
 plot <- 
   ggplot(data = m, 
          aes(x=rank(facre_pc), y=COVID_DEATH_RATE, color=MedInc)) +
