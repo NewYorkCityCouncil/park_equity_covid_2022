@@ -23,6 +23,8 @@ knitr::opts_knit$set(root.dir = here::here())
 ```
 ## Oversight Hearing Topic Summary
 
+Data analysis and visuals for NYCC 4.22.22 ['Oversight: The Effect of COVID-19 on Park Equity'](https://legistar.council.nyc.gov/MeetingDetail.aspx?ID=951908&GUID=4D8FDC0B-C36E-4C0D-9346-392A41B04110&Options=info%7C&Search=) hearing.
+
 Recent reports by various advocacy groups have highlighted the inequities faced by the parks system. Specifically, in lower income neighborhoods, where the COVID infection rates were high have been shown to be without quality access to open space when compared to neighborhoods with higher average incomes and lower COVID rates. report by the Trust for Public Land found that parks in low-income and minority neighborhoods across the city are often smaller, making it more difficult to spread out and keep a distance from others. 
 
 The following maps and charts highlight these disparities:
@@ -333,52 +335,11 @@ m <- modzcta_facre %>%
 
 <br>
 
-### Park Acreage and Non-Hispanic White
 
-While median income and COVID death rates show a clear negative relationship, the chart above has a very slight upward trend. It compares park acreage per capita to the percentage of non-Hispanic white residents. It shows zip codes with the lowest park acreage per capita have a slightly lower percentage of non-Hispanic white residents compared to zip codes with the highest park acreage per capita. 
-<br>
-
-```{r NH White, echo=FALSE, fig.fullwidth=TRUE, fig.width=10}
-# MODZCTA Park Access and Non-Hispanic White --------
- modzcta_facre %>%
-  filter(Pop_Add_MODZCTA !=0) %>%
-ggplot(aes(x=rank(facre_pc), y=NH_White)) + 
-  geom_point() + 
-  scale_y_continuous(labels = scales::percent_format(scale=1)) +
-  ggtitle("Park Equity in NYC", "Comparing Park Acreage and Race for Every Zipcode") +
-  labs(
-    x = "Park Acreage\n (Functional Acreage Per Capita) \n Ranked from Least to Greatest",
-    y = "Non-Hispanic White", 
-    caption = expression(paste(italic("Source: Census ACS; NYC Parks: Walk-to-a-Park Service Area"))) ) +
- # geom_smooth(se = FALSE, color = "grey") +
-  theme(legend.position="right", legend.text = element_text(size=8),
-        legend.title = element_text(size=10, family = 'Georgia'),
-        text = element_text(family = "Open Sans"),
-        panel.grid.major = element_blank(),
-        panel.background = element_blank(),
-        axis.line = element_line(colour = "black"),
-        panel.grid.minor = element_blank(),
-        plot.title = element_text(family = "Georgia",size = 14),
-        axis.title.y = element_text(size = 11, 
-          margin = margin(t = 0, r = 10, b = 0, l = 0)),
-        axis.text.y = element_text(size = 11, 
-                     margin = margin(t = 0, r = 10, b = 0, l = 0)),
-        axis.text.x = element_text(size = 11, 
-                      margin = margin(t = 10, r = 0, b = 0, l = 0)),
-        axis.title.x = element_text(size = 11, 
-          margin = margin(t = 10, r = 0, b = 0, l = 0))) 
-```
-
-
-<br>
-
-***
-
-<br>
 
 ### Median Income & COVID Death Rate
 
-The chart above displays the relationship between median household income and COVID-19 death rate and shows that lower income zip codes tend to have the highest COVID-19 death rates and higher income zip codes have the lowest COVID-19 death rates.  
+The chart below displays the relationship between median household income and COVID-19 death rate and shows that lower income zip codes tend to have the highest COVID-19 death rates and higher income zip codes have the lowest COVID-19 death rates.  
 
 <br>
 
@@ -418,4 +379,44 @@ The chart above displays the relationship between median household income and CO
 ***
 
 <br>
+
+
+
+### Park Acreage and Non-Hispanic White
+
+While median income and COVID death rates show a clear negative relationship, the chart below has a very slight upward trend. It compares park acreage per capita to the percentage of non-Hispanic white residents. It shows zip codes with the lowest park acreage per capita have a slightly lower percentage of non-Hispanic white residents compared to zip codes with the highest park acreage per capita. 
+<br>
+
+```{r NH White, echo=FALSE, fig.fullwidth=TRUE, fig.width=10}
+# MODZCTA Park Access and Non-Hispanic White --------
+ modzcta_facre %>%
+  filter(Pop_Add_MODZCTA !=0) %>%
+ggplot(aes(x=rank(facre_pc), y=NH_White)) + 
+  geom_point() + 
+  scale_y_continuous(labels = scales::percent_format(scale=1)) +
+  ggtitle("Park Equity in NYC", "Comparing Park Acreage and Race for Every Zipcode") +
+  labs(
+    x = "Park Acreage\n (Functional Acreage Per Capita) \n Ranked from Least to Greatest",
+    y = "Non-Hispanic White", 
+    caption = expression(paste(italic("Source: Census ACS; NYC Parks: Walk-to-a-Park Service Area"))) ) +
+ # geom_smooth(se = FALSE, color = "grey") +
+  theme(legend.position="right", legend.text = element_text(size=8),
+        legend.title = element_text(size=10, family = 'Georgia'),
+        text = element_text(family = "Open Sans"),
+        panel.grid.major = element_blank(),
+        panel.background = element_blank(),
+        axis.line = element_line(colour = "black"),
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(family = "Georgia",size = 14),
+        axis.title.y = element_text(size = 11, 
+          margin = margin(t = 0, r = 10, b = 0, l = 0)),
+        axis.text.y = element_text(size = 11, 
+                     margin = margin(t = 0, r = 10, b = 0, l = 0)),
+        axis.text.x = element_text(size = 11, 
+                      margin = margin(t = 10, r = 0, b = 0, l = 0)),
+        axis.title.x = element_text(size = 11, 
+          margin = margin(t = 10, r = 0, b = 0, l = 0))) 
+```
+
+
 
