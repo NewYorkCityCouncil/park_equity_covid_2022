@@ -10,6 +10,7 @@ A summary of the results can be found here: https://newyorkcitycouncil.github.io
 - [Parks Maintenance Report](https://www.nycgovparks.org/pagefiles/173/Fiscal-Year-2021-Annual-Report-on-Park-Maintenance__61e6f4a01b623.pdf)
 - [2010 Census Tracts](https://www1.nyc.gov/site/planning/data-maps/open-data/census-download-metadata.page)
 - [2010 ZCTA to Census Tract Relationship File](https://www2.census.gov/geo/docs/maps-data/data/rel/zcta_tract_rel_10.txt)
+- [NYC DOHMH COVID-19 Data by MODZCTA](https://github.com/nychealth/coronavirus-data/blob/master/totals/data-by-modzcta.csv)
 - [NYC DOHMH Geographic Resources](https://github.com/nychealth/coronavirus-data/tree/master/Geography-resources)
 - 2019 5-Year ACS Survey: *We used R package censusapi to get demographic data
 
