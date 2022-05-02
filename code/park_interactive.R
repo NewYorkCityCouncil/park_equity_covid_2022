@@ -79,8 +79,15 @@ plot <-
         axis.title.x = element_text(size = 11, 
                                     margin = margin(t = 10, r = 0, b = 0, l = 0))) 
 
-plot_interactive <- ggiraph(ggobj = plot,   width_svg = 9,
-        height_svg = 5,)
+tooltip_css <- "background-color:#CACACA;"
+
+plot_interactive <- girafe(ggobj = plot,   
+                            width_svg = 9,
+                            height_svg = 5, 
+                            options = list(
+                              opts_tooltip(css = tooltip_css)
+                              )
+)
 
 htmltools::save_html(plot_interactive, "figures/plot_interactive.html")
 
