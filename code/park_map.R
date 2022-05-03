@@ -290,7 +290,7 @@ map <- leaflet(options = leafletOptions(zoomControl = FALSE)) %>%
             group = "COVID-19 Death Rate", 
             layerId = "COVID-19 Death Rate") %>% 
   addLayersControl(
-    baseGroups =c("Median Income", "Non-Hispanic White", "COVID-19 Death Rate"),
+    baseGroups =c("COVID-19 Death Rate", "Median Income", "Non-Hispanic White"),
     options = layersControlOptions(collapsed=FALSE),
     position = "topleft"
   ) %>%
