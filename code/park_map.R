@@ -5,12 +5,9 @@
 source("code/load_dependencies.R")
 
 ################################################################################################################################################
-### Load processed acs and park maintenance data
+### Load processed acs and park maintenance data; common labels and variables
 
 modzcta_facre <- st_read("data/processed/modzcta_facre.geojson") 
-
-################################################################################################################################################
-### Demographic Maps
 
 # labels for all the maps
 labels_facre <- paste("<h3>","Neighborhood: ", modzcta_facre$NEIGHBORHOOD_NAME, "</h3>",
@@ -25,6 +22,24 @@ labels_facre <- paste("<h3>","Neighborhood: ", modzcta_facre$NEIGHBORHOOD_NAME, 
                       "<p>",paste0("Non-Hispanic White (%): ", round(modzcta_facre$NH_White, 1)),"</p>"
                       
 )
+
+boro <- read_sf("https://data.cityofnewyork.us/api/geospatial/tqmj-j8zm?method=export&format=GeoJSON") %>% 
+  st_transform("+proj=longlat +datum=WGS84") %>% 
+  st_simplify(dTolerance = .00001)
+
+# park_access outline
+recode <- modzcta_facre %>% 
+  mutate(bottom25 = ifelse(facre_pc * 100000 < 25, 1, 0))
+
+# source control
+rr <- HTML('<small> Source: Census ACS Table, NYC Parks, NYC DOHMH </small>')
+
+# park_accesslegend  
+park_access<- HTML('<div style="color: #8744BC;"> <strong>Bottom 25%</strong> <br>  Park Access</div> <div><small>(Ten Minute Walk)</div>')
+
+
+################################################################################################################################################
+### Demographic Maps
 
 # each pal uses: ~ 25%, 50%, 75%, 90%, 100%
 # ex: quantile(modzcta_facre$MedInc, seq(0,1,0.05), na.rm = TRUE)
@@ -200,4 +215,108 @@ mapshot(map, file = "figures/COVID_deaths.png",
 
 saveWidget(map, file = "figures/COVID_deaths.html")
 
+### Map of income, non-hispanic white, and covid death rate -----------------------------
 
+### palettes
+pal_inc = colorBin(
+  palette = c('#d5dded', '#afb9db', '#8996ca', '#6175b8', '#2f56a6'),
+  bins = c(0,55000,70000,95000,130000,260000),
+  domain = modzcta_facre$MedInc, 
+  na.color = "#CACACA"
+)
+
+pal_nhw = colorBin(
+  # five green (positive)
+  palette = c('#e6dfd3', '#cfbea5', '#b79e7a', '#9e7f4f', '#846126'),
+  bins = c(0,15,35,60,70,92),
+  domain = modzcta_facre$NH_White, 
+  na.color = "#F9F9F9"
+)
+
+pal_covid = colorBin(
+  # five green (positive)
+  palette = c('#d1dff6', '#afbdef', '#8b9ce7', '#617ddf', '#1d5fd6'),
+  bins = c(10,350,450,550,650,1500),
+  domain = modzcta_facre$COVID_DEATH_RATE, 
+  na.color = "#CACACA"
+)
+
+### map
+map <- leaflet(options = leafletOptions(zoomControl = FALSE)) %>%
+  # htmlwidgets::onRender("function(el, x) {
+  #       L.control.zoom({ position: 'topright' }).addTo(this)
+  #   }") %>%
+  setView(-73.984865,40.710542,10.5) %>%
+  setMapWidgetStyle(list(background= "white")) %>% 
+  # Median Income
+  addPolygons(data = modzcta_facre, weight = 1, opacity = 0.5,
+              color = ~pal_inc(MedInc), 
+              fillColor = ~pal_inc(MedInc),
+              fillOpacity = 0.9, popup = lapply(labels_facre,HTML), 
+              group = "Median Income") %>% 
+  addLegend(position ="topleft", 
+            pal = pal_inc, 
+            opacity = 0.9,
+            values = modzcta_facre$MedInc,
+            title =  "<strong>Median Household Income<hr>",
+            labFormat = labelFormat(prefix = "$", big.mark = ",", between = ' &ndash;  $'), 
+            group = "Median Income", 
+            layerId = "Median Income") %>% 
+  # Non-Hispanic White
+  addPolygons(data = modzcta_facre, weight = 1, opacity = 0.5,
+              color = ~pal_nhw(NH_White), 
+              fillColor = ~pal_nhw(NH_White),
+              fillOpacity = 0.9, popup = lapply(labels_facre,HTML), 
+              group = "Non-Hispanic White") %>% 
+  addLegend(position ="topleft", 
+            pal = pal_nhw, 
+            opacity = 0.9,
+            values = modzcta_facre$NH_White,
+            title =  "<strong>Non-Hispanic White<hr>",
+            labFormat = labelFormat(suffix = "%",  between = '% &ndash; '), 
+            group = "Non-Hispanic White", 
+            layerId = "Non-Hispanic White") %>%
+  # COVID-19 Death Rate 
+  addPolygons(data = modzcta_facre, weight = 1, opacity = 0.5,
+              color = ~pal_covid(COVID_DEATH_RATE), 
+              fillColor = ~pal_covid(COVID_DEATH_RATE),
+              fillOpacity = 0.9, popup = lapply(labels_facre,HTML), 
+              group = "COVID-19 Death Rate") %>% 
+  addLegend(position ="topleft", 
+            pal = pal_covid, 
+            opacity = 0.9,
+            values = modzcta_facre$COVID_DEATH_RATE,
+            title =  "<strong>COVID Death Rate</strong></br>Per 100,000 Residents<hr>", 
+            group = "COVID-19 Death Rate", 
+            layerId = "COVID-19 Death Rate") %>% 
+  addLayersControl(
+    baseGroups =c("Median Income", "Non-Hispanic White", "COVID-19 Death Rate"),
+    options = layersControlOptions(collapsed=FALSE),
+    position = "topleft"
+  ) %>%
+  addControl(rr, position = "bottomright") %>% 
+  addControl(park_access, position = "topleft") %>% 
+  addPolygons(data = recode, weight = 2, fill=F, opacity = 1,
+              color = "#800000", stroke = recode$bottom25) %>% 
+  addPolygons(data=boro, stroke = T, fill=F, color = "#666666", weight = 1) %>%
+  onRender("
+    function() { 
+      var map = this;
+      var legends = map.controls._controlsById;
+      function addActualLegend() {
+         var sel = $('.leaflet-control-layers-base').find('input[type=\"radio\"]:checked').siblings('span').text().trim();
+         $.each(map.controls._controlsById, (nm) => map.removeControl(map.controls.get(nm)));
+         map.addControl(legends[sel]);
+      }
+      $('.leaflet-control-layers-base').on('click', addActualLegend);
+      addActualLegend();
+   }") %>%
+  onRender("
+    function(el, x) {
+      this.on('baselayerchange', function(e) {
+        e.layer.bringToBack();
+      })
+    }
+  ")
+
+saveWidget(map, file = "figures/map_inc_nhw_covid.html")
