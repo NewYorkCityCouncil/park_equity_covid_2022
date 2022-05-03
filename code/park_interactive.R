@@ -89,7 +89,7 @@ plot_interactive <- girafe(ggobj = plot,
                               )
 )
 
-htmltools::save_html(plot_interactive, "figures/plot_interactive.html")
+htmltools::save_html(plot_interactive, "figures/mainplot_interactive.html")
 
 ### Median Income and Covid
 
@@ -145,7 +145,7 @@ plot_interactive <- girafe(ggobj = plot,
                            )
 )
 
-htmltools::save_html(plot_interactive, "figures/plot_interactive.html")
+htmltools::save_html(plot_interactive, "figures/medinc_covid_interactive.html")
 
 ### Park Access and Non-Hispanic White --------
 
@@ -201,3 +201,6 @@ plot_interactive <- girafe(ggobj = plot,
                              opts_tooltip(css = tooltip_css)
                            )
 )
+
+htmltools::save_html(plot_interactive, "figures/access_nhw_interactive.html")
+
