@@ -292,7 +292,7 @@ map <- leaflet(options = leafletOptions(zoomControl = FALSE)) %>%
   addLayersControl(
     baseGroups =c("COVID-19 Death Rate", "Median Income", "Non-Hispanic White"),
     options = layersControlOptions(collapsed=FALSE),
-    position = "topleft"
+    position = "topright"
   ) %>%
   addControl(rr, position = "bottomright") %>% 
   addControl(park_access, position = "topleft") %>% 
