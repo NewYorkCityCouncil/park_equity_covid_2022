@@ -21,7 +21,8 @@ cross_park <- read.csv("data/raw/pm_property_number_crosswalk.csv", header = TRU
 iso <- st_read("data/processed/isochrones_10min_accesspts.geojson") %>%
   left_join(cross_park, by = c("gispropnum" = "property_number")) %>%
   # use gispropnum as ID unless it was combined in cross_park, then use pm_combine
-  mutate(pm_combine = ifelse(is.na(pm_combine), gispropnum, pm_combine))
+  mutate(pm_combine = ifelse(is.na(pm_combine), gispropnum, pm_combine), 
+         pm_combine = ifelse(pm_combine=="N/A", parkname, pm_combine))
 
 iso_pm <- iso %>%
   left_join(pm, by = "pm_combine") 

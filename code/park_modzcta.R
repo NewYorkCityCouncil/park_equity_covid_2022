@@ -31,6 +31,10 @@ modzcta_cross <- read.csv("https://raw.githubusercontent.com/nychealth/coronavir
 ### Load processed census tract acs and park maintenance data
 ct_grouped <- st_read("data/processed/ct_grouped.geojson") 
 
+### Load zcta acs data
+zcta_acs <- read.csv("data/processed/zcta_acs.csv") %>%
+  mutate(ZCTA5 = as.character(ZCTA5))
+
 ### Load Covid data from NYC Health
 url <- "https://raw.githubusercontent.com/nychealth/coronavirus-data/master/totals/data-by-modzcta.csv"
 covid <- read.csv(url) %>%
@@ -130,6 +134,13 @@ modzcta_facre <- covid_sf %>%
   ) %>%
   select(c("MODZCTA", "NEIGHBORHOOD_NAME", "BOROUGH_GROUP", "COVID_DEATH_RATE", "facre", "hrs_per_facre", "Pop_Add_MODZCTA", "MedInc", "ForeignBorn", "NH_White", "facre_pc")) %>%
   unique()
+
+# Roosevelt Island and Breezy Point have inaccurate values due to the N/As in parks data (gispropnum or similiar)
+modzcta_facre <- modzcta_facre %>%
+  mutate(facre = ifelse(MODZCTA == "10044" |  MODZCTA == "11697", NA, facre), 
+         hrs_per_facre = ifelse(MODZCTA == "10044" |  MODZCTA == "11697", NA, hrs_per_facre), 
+         facre_pc = ifelse(MODZCTA == "10044" |  MODZCTA == "11697", NA, facre_pc))
+
 
 st_write(modzcta_facre, "data/processed/modzcta_facre.geojson",  
          driver='GeoJSON', delete_dsn=TRUE)

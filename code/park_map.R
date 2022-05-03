@@ -29,7 +29,7 @@ boro <- read_sf("https://data.cityofnewyork.us/api/geospatial/tqmj-j8zm?method=e
 
 # park_access outline
 recode <- modzcta_facre %>% 
-  mutate(bottom25 = ifelse(facre_pc * 100000 < 25, 1, 0))
+  mutate(bottom25 = ifelse(facre_pc * 100000 < 27.5, 1, 0))
 
 # source control
 rr <- HTML('<small> Source: Census ACS Table, NYC Parks, NYC DOHMH </small>')
@@ -48,27 +48,14 @@ park_access<- HTML('<div style="color: #8744BC;"> <strong>Bottom 25%</strong> <b
 ### Functional Acres Per 100,000 Residents ------------------------------ 
 # map options defined
 
-boro <- read_sf("https://data.cityofnewyork.us/api/geospatial/tqmj-j8zm?method=export&format=GeoJSON") %>% 
-  st_transform("+proj=longlat +datum=WGS84") %>% 
-  st_simplify(dTolerance = .00001)
-
 # color palette
 pal = colorBin(
   # five green (positive)
   palette = c('#eaf5ef', '#b6d4bd', '#83b48d', '#4f9560', '#007534'),
-  bins = c(0,25,80,150,450,4500),
+  bins = c(0,28,80,150,450,4500),
   domain = modzcta_facre$facre_pc * 100000, 
   na.color = "#CACACA"
 )
-# park_access outline
-recode <- modzcta_facre %>% 
-  mutate(bottom25 = ifelse(facre_pc * 100000 < 25, 1, 0))
-
-# source control
-rr <- HTML('<small> Source: Census ACS Table, NYC Parks, NYC DOHMH </small>')
-
-# park_accesslegend  
-park_access<- HTML('<div style="color: #8744BC;"> <strong>Bottom 25%</strong> <br>  Park Access</div> <div><small>(Ten Minute Walk)</div>')
 
 ### leaflet map
 
