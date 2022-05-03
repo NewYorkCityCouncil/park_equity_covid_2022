@@ -14,8 +14,8 @@ modzcta_facre <- st_read("data/processed/modzcta_facre.geojson") %>%
 ##################################################################################################################################
 ### Correlation Plots
 
-library(ggiraph)
 
+### Park Acreage, Covid deaths, Median Income
 mid<-median(modzcta_facre$MedInc, na.rm=TRUE)
 
 m <- modzcta_facre %>%
@@ -91,3 +91,113 @@ plot_interactive <- girafe(ggobj = plot,
 
 htmltools::save_html(plot_interactive, "figures/plot_interactive.html")
 
+### Median Income and Covid
+
+m <- modzcta_facre %>%
+  filter(Pop_Add_MODZCTA !=0)
+
+plot <- m %>%
+  filter(Pop_Add_MODZCTA !=0) %>%
+  ggplot(aes(x=MedInc, y=COVID_DEATH_RATE)) + 
+  geom_point_interactive(
+    tooltip = paste0(
+      "Neighborhood (modzcta): ", m$NEIGHBORHOOD_NAME, " (", m$MODZCTA, ")", 
+      "\n", 
+      "Borough: ", m$BOROUGH_GROUP, 
+      "\n", 
+      "Park Access (Functional Acres Per 100,000 Residents): ", round(m$facre_pc * 100000, 1), 
+      "\n", 
+      "COVID-19 Death Rate (Per 100,000): ", round(m$COVID_DEATH_RATE, 0), 
+      "\n", 
+      "Median Income ($): ", scales::comma(round(m$MedInc, 0))
+    )
+  ) + 
+  scale_y_continuous(label = scales::comma_format()) +
+  scale_x_continuous(label = scales::dollar_format()) +
+  ggtitle("Median Income and COVID Death Rate for Every Zipcode") +
+  labs(x = "Median Income", y = "Covid Death Rate (Per 100,000)", 
+       caption = expression(paste(italic("Source: Census ACS; DOHMH"))) ) +
+  
+  theme(legend.position="right", legend.text = element_text(size=8),
+        legend.title = element_text(size=10, family = 'Georgia'),
+        text = element_text(family = "Open Sans"),
+        panel.grid.major = element_blank(),
+        panel.background = element_blank(),
+        axis.line = element_line(colour = "black"),
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(family = "Georgia",size = 14),
+        axis.title.y = element_text(size = 11, 
+                                    margin = margin(t = 0, r = 10, b = 0, l = 0)),
+        axis.text.y = element_text(size = 11, 
+                                   margin = margin(t = 0, r = 10, b = 0, l = 0)),
+        axis.text.x = element_text(size = 11, 
+                                   margin = margin(t = 10, r = 0, b = 0, l = 0)),
+        axis.title.x = element_text(size = 11, 
+                                    margin = margin(t = 10, r = 0, b = 0, l = 0))) 
+
+tooltip_css <- "background-color:#CACACA;"
+
+plot_interactive <- girafe(ggobj = plot,   
+                           width_svg = 9,
+                           height_svg = 5, 
+                           options = list(
+                             opts_tooltip(css = tooltip_css)
+                           )
+)
+
+htmltools::save_html(plot_interactive, "figures/plot_interactive.html")
+
+### Park Access and Non-Hispanic White --------
+
+m <- modzcta_facre %>%
+  filter(Pop_Add_MODZCTA !=0)
+
+plot <- m %>%
+  filter(Pop_Add_MODZCTA !=0) %>%
+  ggplot(aes(x=rank(facre_pc), y=NH_White)) + 
+  geom_point_interactive(
+    tooltip = paste0(
+      "Neighborhood (modzcta): ", m$NEIGHBORHOOD_NAME, " (", m$MODZCTA, ")", 
+      "\n", 
+      "Borough: ", m$BOROUGH_GROUP, 
+      "\n", 
+      "Park Access (Functional Acres Per 100,000 Residents): ", round(m$facre_pc * 100000, 1), 
+      "\n", 
+      "COVID-19 Death Rate (Per 100,000): ", round(m$COVID_DEATH_RATE, 0), 
+      "\n", 
+      "Median Income ($): ", scales::comma(round(m$MedInc, 0))
+    )
+  ) + 
+  scale_y_continuous(labels = scales::percent_format(scale=1)) +
+  ggtitle("Park Equity in NYC", "Comparing Park Acreage and Race for Every Zipcode") +
+  labs(
+    x = "Park Acreage\n (Functional Acreage Per Capita) \n Ranked from Least to Greatest",
+    y = "Non-Hispanic White", 
+    caption = expression(paste(italic("Source: Census ACS; NYC Parks: Walk-to-a-Park Service Area"))) ) +
+  # geom_smooth(se = FALSE, color = "grey") +
+  theme(legend.position="right", legend.text = element_text(size=8),
+        legend.title = element_text(size=10, family = 'Georgia'),
+        text = element_text(family = "Open Sans"),
+        panel.grid.major = element_blank(),
+        panel.background = element_blank(),
+        axis.line = element_line(colour = "black"),
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(family = "Georgia",size = 14),
+        axis.title.y = element_text(size = 11, 
+                                    margin = margin(t = 0, r = 10, b = 0, l = 0)),
+        axis.text.y = element_text(size = 11, 
+                                   margin = margin(t = 0, r = 10, b = 0, l = 0)),
+        axis.text.x = element_text(size = 11, 
+                                   margin = margin(t = 10, r = 0, b = 0, l = 0)),
+        axis.title.x = element_text(size = 11, 
+                                    margin = margin(t = 10, r = 0, b = 0, l = 0))) 
+
+tooltip_css <- "background-color:#CACACA;"
+
+plot_interactive <- girafe(ggobj = plot,   
+                           width_svg = 9,
+                           height_svg = 5, 
+                           options = list(
+                             opts_tooltip(css = tooltip_css)
+                           )
+)

@@ -93,7 +93,7 @@ pal = colorBin(
   na.color = "#CACACA"
 )
 
-leaflet(options = leafletOptions(zoomControl = FALSE)) %>%
+map <- leaflet(options = leafletOptions(zoomControl = FALSE)) %>%
   # htmlwidgets::onRender("function(el, x) {
   #       L.control.zoom({ position: 'topright' }).addTo(this)
   #   }") %>%
@@ -113,10 +113,12 @@ leaflet(options = leafletOptions(zoomControl = FALSE)) %>%
             title =  "<strong>Median Household Income<hr>",
             labFormat = labelFormat(prefix = "$", big.mark = ",", between = ' &ndash;  $')) %>% 
   addControl(rr, position = "bottomright") %>% 
-  addControl(park_access, position = "topleft") %>% 
-  
-  mapshot(file = "figures/median_income.png", 
-          vwidth = 900, vheight = 870)
+  addControl(park_access, position = "topleft") 
+
+mapshot(map, file = "figures/median_income.png", 
+        vwidth = 900, vheight = 870)
+
+saveWidget(map, file = "figures/median_income.html")
 
 
 
@@ -153,10 +155,12 @@ leaflet(options = leafletOptions(zoomControl = FALSE)) %>%
             title =  "<strong>Non-Hispanic White<hr>",
             labFormat = labelFormat(suffix = "%",  between = '% &ndash; ')) %>%
   addControl(rr, position = "bottomright") %>% 
-  addControl(park_access,position = "topleft") %>% 
-  
-  mapshot(file = "figures/NH_White.png", 
-          vwidth = 900, vheight = 870)
+  addControl(park_access,position = "topleft") 
+
+mapshot(map, file = "figures/NH_White.png", 
+        vwidth = 900, vheight = 870)
+
+saveWidget(map, file = "figures/NH_White.html")
 
 
 ### Covid Death Rate Per 100,000 Residents ----
@@ -189,9 +193,11 @@ leaflet(options = leafletOptions(zoomControl = FALSE)) %>%
             values = modzcta_facre$COVID_DEATH_RATE,
         title =  "<strong>COVID Death Rate</strong></br>Per 100,000 Residents<hr>") %>%
   addControl(rr, position = "bottomright") %>% 
-  addControl(park_access, position = "topleft") %>% 
-  
-  mapshot(file = "figures/COVID_deaths.png", 
-          vwidth = 900, vheight = 870)
+  addControl(park_access, position = "topleft") 
+
+mapshot(map, file = "figures/COVID_deaths.png", 
+        vwidth = 900, vheight = 870)
+
+saveWidget(map, file = "figures/COVID_deaths.html")
 
 

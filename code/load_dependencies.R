@@ -8,7 +8,8 @@
 list.of.packages <- c("tidyverse", "janitor", "lubridate", "sf", "ggplot2", 
                       "leaflet", "leaflet.extras", "htmlwidgets", "RSocrata", 
                       "vroom", "mapview", "classInt", "openxlsx", "mapboxapi",
-                      "skimr", "DBI", "geoclient", "censusapi", "readxl", "htmltools")
+                      "skimr", "DBI", "geoclient", "censusapi", "readxl", "htmltools", 
+                      "ggiraph")
 
 # checks if packages has been previously installed
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
