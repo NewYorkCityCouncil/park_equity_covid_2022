@@ -57,7 +57,7 @@ park_access<- HTML('<div style="color: #8744BC;"> <strong>Bottom 25%</strong> <b
 
 ### leaflet map
 
-leaflet(options = leafletOptions(zoomControl = FALSE)) %>%
+map <- leaflet(options = leafletOptions(zoomControl = FALSE)) %>%
   # htmlwidgets::onRender("function(el, x) {
   #       L.control.zoom({ position: 'topright' }).addTo(this)
   #   }") %>%
@@ -74,11 +74,12 @@ leaflet(options = leafletOptions(zoomControl = FALSE)) %>%
             opacity = 0.9, values = modzcta_facre$facre_pc * 100000,
             title =  "<strong>Park Acreage:<strong><hr><small>Functional Acres <br> Per 100,000 Residents</small>") %>% 
   addControl(rr, position = "bottomright") %>% 
-  addControl(park_access, position = "topleft") %>% 
+  addControl(park_access, position = "topleft")  
   
-  mapshot(file = "figures/acreage.png", 
-          vwidth = 900, vheight = 870)
+mapshot(map, file = "figures/acreage.png", 
+        vwidth = 900, vheight = 870)
 
+saveWidget(map, file = "figures/acreage.html")
 
 ### Median Household Income ------------------------------
 
