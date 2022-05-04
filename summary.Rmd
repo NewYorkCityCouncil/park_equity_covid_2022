@@ -1,5 +1,5 @@
 ---
-title: "Pay Equity & Covid 2022 Hearing"
+title: "Park Equity & Covid 2022 Hearing"
 author: "Data Team"
 date: "`r councildown::pretty_date()`"
 fontsize: 11pt
