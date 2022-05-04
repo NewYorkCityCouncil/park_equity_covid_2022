@@ -19,7 +19,7 @@ modzcta_facre <- st_read("data/processed/modzcta_facre.geojson") %>%
 mid<-median(modzcta_facre$MedInc, na.rm=TRUE)
 
 m <- modzcta_facre %>%
-  filter(Pop_Add_MODZCTA !=0)
+  filter(Pop_Add_MODZCTA !=0 & !(is.na(facre_pc)))
 
 plot <- 
   ggplot(data = m, 
@@ -150,7 +150,7 @@ htmltools::save_html(plot_interactive, "figures/medinc_covid_interactive.html")
 ### Park Access and Non-Hispanic White --------
 
 m <- modzcta_facre %>%
-  filter(Pop_Add_MODZCTA !=0)
+  filter(Pop_Add_MODZCTA !=0 & !(is.na(facre_pc)))
 
 plot <- m %>%
   filter(Pop_Add_MODZCTA !=0) %>%
