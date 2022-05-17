@@ -137,7 +137,7 @@ pal = colorBin(
 )
 
 
-leaflet(options = leafletOptions(zoomControl = FALSE)) %>%
+map <- leaflet(options = leafletOptions(zoomControl = FALSE)) %>%
   # htmlwidgets::onRender("function(el, x) {
   #       L.control.zoom({ position: 'topright' }).addTo(this)
   #   }") %>%
@@ -176,7 +176,7 @@ pal = colorBin(
   na.color = "#CACACA"
 )
 
-leaflet(options = leafletOptions(zoomControl = FALSE)) %>%
+map <- leaflet(options = leafletOptions(zoomControl = FALSE)) %>%
   # htmlwidgets::onRender("function(el, x) {
   #       L.control.zoom({ position: 'topright' }).addTo(this)
   #   }") %>%

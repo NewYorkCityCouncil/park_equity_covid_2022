@@ -17,7 +17,7 @@ quantile(modzcta_facre$COVID_DEATH_RATE, seq(0,1,0.05), na.rm = TRUE)
 
 # sorted by covid-19 death rates
 modzcta_facre %>% 
-  filter(facre_pc <= 0.0003 & COVID_DEATH_RATE >= 600) %>% 
+  filter(facre_pc <= 0.0003 & COVID_DEATH_RATE >= 500) %>% 
   st_drop_geometry() %>% 
   mutate(
     Neighborhood = NEIGHBORHOOD_NAME, 
@@ -37,12 +37,12 @@ modzcta_facre %>%
 #  tab_source_note(source_note = "") %>%
   gt_theme_nytimes() %>% 
   
-  gtsave("figures/table_covid.pdf")
+  gtsave("figures/table_covid_500.pdf")
 
 
 # sorted by park access
 sort_park <- modzcta_facre %>% 
-  filter(facre_pc <= 0.0003 & COVID_DEATH_RATE >= 600) %>% 
+  filter(facre_pc <= 0.0003 & COVID_DEATH_RATE >= 500) %>% 
   st_drop_geometry() %>% 
   mutate(
     Neighborhood = NEIGHBORHOOD_NAME, 
@@ -62,6 +62,6 @@ sort_park <- modzcta_facre %>%
 #  tab_source_note(source_note = "") %>%
   gt_theme_nytimes() %>%
   
-  gtsave("figures/table_acres.pdf")
+  gtsave("figures/table_acres_500.pdf")
   
 
