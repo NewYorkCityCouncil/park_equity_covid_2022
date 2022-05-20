@@ -12,12 +12,12 @@ modzcta_facre <- st_read("data/processed/modzcta_facre.geojson")
 ##################################################################################################################################
 ### Table
 
-quantile(modzcta_facre$facre_pc, seq(0,1,0.05), na.rm = TRUE)
+quantile(modzcta_facre$facre_pc * 100000, seq(0,1,0.05), na.rm = TRUE)
 quantile(modzcta_facre$COVID_DEATH_RATE, seq(0,1,0.05), na.rm = TRUE)
 
 # sorted by covid-19 death rates
 modzcta_facre %>% 
-  filter(facre_pc <= 0.0003 & COVID_DEATH_RATE >= 500) %>% 
+  filter(facre_pc <= 0.00022 & COVID_DEATH_RATE >= 500) %>% 
   st_drop_geometry() %>% 
   mutate(
     Neighborhood = NEIGHBORHOOD_NAME, 
@@ -42,7 +42,7 @@ modzcta_facre %>%
 
 # sorted by park access
 sort_park <- modzcta_facre %>% 
-  filter(facre_pc <= 0.0003 & COVID_DEATH_RATE >= 500) %>% 
+  filter(facre_pc <= 0.00022 & COVID_DEATH_RATE >= 500) %>% 
   st_drop_geometry() %>% 
   mutate(
     Neighborhood = NEIGHBORHOOD_NAME, 
