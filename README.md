@@ -1,7 +1,7 @@
 ## Park Equity & COVID-19
 Data analysis and visuals for NYCC 4.22.22 ['Oversight: The Effect of COVID-19 on Park Equity'](https://legistar.council.nyc.gov/MeetingDetail.aspx?ID=951908&GUID=4D8FDC0B-C36E-4C0D-9346-392A41B04110&Options=info|&Search=) hearing.
 
-A summary of the results can be found here: https://council.nyc.gov/data/data-team/park-equity-covid-2022/ 
+An associated webpage for this analysis can be found [on the council website](https://council.nyc.gov/data/data-team/park-equity-covid-2022/): 
 
 ***  
 
