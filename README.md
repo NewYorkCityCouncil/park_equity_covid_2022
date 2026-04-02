@@ -1,24 +1,21 @@
 ## Park Equity & COVID-19
-Data analysis and visuals for NYCC 4.22.22 ['Oversight: The Effect of COVID-19 on Park Equity'](https://legistar.council.nyc.gov/MeetingDetail.aspx?ID=951908&GUID=4D8FDC0B-C36E-4C0D-9346-392A41B04110&Options=info|&Search=) hearing.
+This project was intentionally meant to present data analysis and visuals for NYCC 4.22.22 ['Oversight: The Effect of COVID-19 on Park Equity'](https://legistar.council.nyc.gov/MeetingDetail.aspx?ID=951908&GUID=4D8FDC0B-C36E-4C0D-9346-392A41B04110&Options=info|&Search=) hearing. This new branch builds upon the original project with updated data and methodology, leaving out COVID-19 metrics and instead bringing in more equity-related ones.
 
-An associated webpage for this analysis can be found [on the council website](https://council.nyc.gov/data/data-team/park-equity-covid-2022/): 
+An associated webpage for this analysis can be found [on the council website](https://council.nyc.gov/data/data-team/park-equity-covid-2022/), but please note that it has not been updated with the new analysis in this branch.
 
 ***  
 
 ### Data Sources 
 - [Walk-to-a-Park Service Area](https://data.cityofnewyork.us/Recreation/Walk-to-a-Park-Service-area/5vb5-y6cv)
-- [Parks Maintenance Report](https://www.nycgovparks.org/pagefiles/173/Fiscal-Year-2021-Annual-Report-on-Park-Maintenance__61e6f4a01b623.pdf)
-- [2010 Census Tracts](https://www1.nyc.gov/site/planning/data-maps/open-data/census-download-metadata.page)
-- [2010 ZCTA to Census Tract Relationship File](https://www2.census.gov/geo/docs/maps-data/data/rel/zcta_tract_rel_10.txt)
-- [NYC DOHMH COVID-19 Data by MODZCTA](https://github.com/nychealth/coronavirus-data/blob/master/totals/data-by-modzcta.csv)
-- [NYC DOHMH Geographic Resources](https://github.com/nychealth/coronavirus-data/tree/master/Geography-resources)
-- 2019 5-Year ACS Survey: *We used R package censusapi to get demographic data
+- [Updated 2024 Parks Maintenance Report](https://www.nycgovparks.org/pagefiles/204/Admin-Code-18-144-FY24Report-vf__67d83e05078a0.pdf)
+- [Updated 2020 Census Tracts](https://data.cityofnewyork.us/City-Government/2020-Census-Tracts/63ge-mke6/about_data)
+- 2022 5-Year ACS Survey: We used R package censusapi to get demographic data needed at the Census Tract level, and the councilcount package for data at the Council District level.
 
 ### Methodology 
 
 #### Summary & Intention
 - Calculate how much functional acreage of park space residents of NYC have access to.
-- Analyze geographic & income disparities in access to park space & the relation to COVID cases.
+- Analyze geographic, income, and demographic disparities (including race, youth populations, senior populations, and public assistance households) in access to park space at the 2023 City Council District level.
 
 
 #### Parks included in Analysis
@@ -28,32 +25,28 @@ From the [Annual Report on Park Maintenance (Local Law 98 of 2015)](https://www.
 Using the access points from Walk-to-a-Park Service Area dataset, we created isochrone polygons or time-distance areas for each point. We used mapbox api for this process and selected a 10 minute walking distance parameter. If the center of a census tract is within 10-minutes walking of any access point associated with a given park, then it is designated as having access to that park. 
 
 #### Acreage Per Capita
-If a census tract is designated as having access to a park, then it is assigned the functional acreage of that park. The acreage is summed for all the parks a census tract has access to. The total acreage is then divided by the census tract population to get acreage per capita. For larger parks, we do not assign the full acreage of the park to a census tract. The maximum amount assigned from a park is capped at 7,000,000 square feet or 160.6979 acres. This number is roughly equivalent to 0.25 square miles and is 3 standard deviations above the average acreage of all the parks in NYC. 
+If a census tract is designated as having access to a park, then it is assigned the functional acreage of that park. The acreage is summed for all the parks a census tract has access to. The total acreage is then divided by the census tract population to get acreage per capita (a rate). For larger parks, we do not assign the full acreage of the park to a census tract. The maximum amount assigned from a park is capped at 7,000,000 square feet or 160.6979 acres. This number is roughly equivalent to 0.25 square miles and is 3 standard deviations above the average acreage of all the parks in NYC.
 
-#### Zip Code Aggregation
-To compare the COVID-19 data to our open space access data, we aggregate the census tracts up to the MODZCTA level. Census tract data is first aggregated to ZCTA5 level using the [Census crosswalk relationship file](https://www2.census.gov/geo/docs/maps-data/data/rel/zcta_tract_rel_10.txt) and doing a population-weighted assignment of acreage. Refer to the [technical document](https://www.census.gov/programs-surveys/geography/technical-documentation/records-layout/2010-zcta-record-layout.html#par_textimage_3) for more information on the crosswalk.  
+#### Council District Aggregation
+To analyze spatial equity at a legislative level, we aggregate the Census Tract data up to the 2023 City Council District (CD) level. Because Census Tracts do not nest cleanly into Council Districts, we perform a spatial join assigning each Census Tract centroid to a Council District.
 
-The data is then aggregated to the MODZCTA level using the [NYC DOHMH files](https://github.com/nychealth/coronavirus-data/tree/master/Geography-resources). The MODZCTA acreage is a population-weighted average of each nested ZCTA value. 
-
+To find the average park access experience for the whole district without artificially penalizing highly populated CDs, we calculate the population-weighted average of the local CT-level access rates. Mathematically, this simplifies to summing all accessible acres across a CD's constituent tracts and dividing by the sum of those tracts' populations: Sum(Accessible Acres) / Sum(CT Population). We also apply a population-weighted average to estimate CD-level Median Household Income. Additional demographic estimates for the CDs (such as Under 18 population, Over 65 population, and SNAP households) are sourced directly from the 2022 5-Year ACS using the councilcount package.
 
 ### Scripts
 
-#### load_dependencies.R
+#### 01_load_dependencies.R
 Loads necessary libraries and functions for use in the other scripts. 
 
-#### create_processed_data.R
-Creates the data found in [data/processed](https://github.com/NewYorkCityCouncil/park_equity_covid_2022/tree/main/data/processed). Imports and cleans park maintenance data, imports ACS data, joins and writes shapefiles with ACS data.  
+#### 02_create_processed_data.Rmd
+Creates the data found in the data/processed directory. Imports 2020 Census Tract shapefiles, pulls 2022 ACS data via the Census API (for CT-level population and median income), pulls 2022 ACS Council District demographic estimates via councilcount, and cleans the park maintenance data.
 
-#### park_ct.R
-This script determines which open space access points are within 10 minutes walking from each census tract and assigns acreage per capita, demographic variables, and park maintenance variables. 
+#### 03_park_cd_access.Rmd
+Determines which open space access points are within 10 minutes walking from each census tract, assigns capped acreage, and performs the spatial join and population-weighted roll-up to the 2023 Council District level. Also calculates subgroup-specific per-capita rates.
 
-#### park_modzcta.R
-This script aggregates the data up to the zip code (modzcta) level. 
+#### 04_park_cd_map.Rmd
+Creates interactive maps displaying park access, median income, and vulnerable population density at the Council District level.
 
-#### park_modzcta_map.R
-Creates maps at the zip code (modzcta level). 
-
-#### park_modzcta_corr.R
-Creates plots of correlations at the zip code (modzcta level). 
+#### 05_park_cd_corr.Rmd
+Creates interactive scatterplots comparing park access to CD demographic percentages.
 
 
