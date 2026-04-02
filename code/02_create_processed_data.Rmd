@@ -1,0 +1,149 @@
+---
+title: "Create Processed Data"
+output: html_document
+---
+
+*Changes: 1. Replaced ZCTA/MODZCTA API pulls with councilcount's `get_geo_estimates()` call for CD-level estimates (most variables), but kept the CT-level spatial data pull since it is needed to intersect with the Park Isochrones, and also for the median income variable. 2. Switched from 2010 census (2019 ACS) to 2020 census (2020 ACS, to match councilcount estimates).*
+
+```{r setup, include=FALSE}
+source("../code/01_load_dependencies.R") 
+```
+
+### Import and Clean ACS Census Tract Data (For Isochrones & Median Income)
+```{r ct-data}
+# Set Census API Key
+Sys.setenv(CENSUS_API_KEY = "8eb345ebff3eef0f3f10891ef6a297781eefd283")
+
+# Pull 2020 CTs from Open Data 
+# Using the geospatial export endpoint bypasses the 1000-row API limit 
+url_2020_ct <- "https://data.cityofnewyork.us/api/geospatial/63ge-mke6?method=export&format=GeoJSON"
+
+ct_shp <- sf::read_sf(url_2020_ct) %>%
+  # The 2020 file contains an 11-digit 'geoid' (e.g., "36061000100").
+  # We append "1400000US" to match the ACS API GEO_ID format exactly.
+  mutate(GEO_ID = paste0("1400000US", geoid))
+
+# Pull 2022 ACS Data at the CT Level (Total Pop & Median Income)
+ct_pop_inc <- getCensus(
+  name = "acs/acs5/subject",
+  vintage = 2022, # 2022 ACS to match councilcount vintage
+  vars = c("NAME", "GEO_ID", "S0101_C01_001E", "S1901_C01_012E"), 
+  region = "tract:*", 
+  regionin = "state:36+county:005,047,081,085,061") %>%
+  # Clean missing median incomes
+  mutate(S1901_C01_012E = ifelse(S1901_C01_012E < 0, NA, S1901_C01_012E))
+
+# Join spatial data with census population & income
+ct_acs <- ct_shp %>%
+  select(GEO_ID) %>%
+  left_join(ct_pop_inc, by = "GEO_ID") %>%
+  # Drop geometry-only tracts that have no ACS data (e.g., water bodies, airport runways)
+  filter(!is.na(NAME)) %>%
+  st_transform("+proj=longlat +datum=WGS84")
+
+st_write(ct_acs, "../data/processed/ct_acs.geojson", driver='GeoJSON', delete_dsn=TRUE)
+```
+
+### Pull Council District Demographics via councilcount
+```{r}
+# Total Pop: DP02_0088E | Under 18: DP05_0019E | Over 65: DP05_0024E 
+# NH White: DP05_0079E | SNAP: DP03_0074E
+cd_vars <- c("DP02_0088E", "DP05_0019E", "DP05_0024E", "DP05_0079E", "DP03_0074E")
+
+# The function will automatically generate the 'PE' (percentage) columns for us, per councilcount documentation
+cd_acs <- get_geo_estimates(acs_year = "2022", geo = "councildist", 
+                            var_codes = cd_vars, boundary_year = "2023") %>%
+  rename(
+    TotalPop = DP02_0088E,
+    Pop_Under18 = DP05_0019E,
+    Perc_Under18 = DP05_0019PE,
+    Pop_Over65 = DP05_0024E,
+    Perc_Over65 = DP05_0024PE,
+    Perc_NHWhite = DP05_0079PE,
+    Perc_SNAP = DP03_0074PE
+  )
+
+st_write(cd_acs, "../data/processed/cd_acs.geojson", driver='GeoJSON', delete_dsn=TRUE)
+```
+
+### Import and Clean Park Maintenance Data 
+```{r park-maintenance}
+# Updated to 2024 version instead of 2021
+dl <- read_xlsx("../data/raw/AC18-144-Report-DataForWebsite-20241127__67dc7cb4493c8.xlsx") %>%
+  clean_names()
+
+pm <- dl %>%
+  mutate(property_number = str_extract(property_number, "\\w+"), 
+         fixedpost_2024q1 = as.factor(fixedpost_2024q1), 
+         fixedpost_2024q2 = as.factor(fixedpost_2024q2), 
+         fixedpost_2024q3 = as.factor(fixedpost_2024q3), 
+         fixedpost_2024q4 = as.factor(fixedpost_2024q4))
+
+write.csv(pm, "../data/processed/park_maintenance.csv", row.names = FALSE)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# --- Old Code for 2010 Census (only uncomment and run if you want 2019 ACS estimates instead of 2022) ---
+
+### Import and Clean ACS Census Tract Data (For Isochrones & Median Income)
+```{r ct-data}
+# # Set Census API Key
+# Sys.setenv(CENSUS_API_KEY = "8eb345ebff3eef0f3f10891ef6a297781eefd283")
+# 
+# # 2010 Census Tracts (Clipped to Shoreline)
+# url <- "https://www1.nyc.gov/assets/planning/download/zip/data-maps/open-data/nyct2010_22a.zip"
+# ct_shp <- sf::read_sf(unzip_sf(url)) %>%
+#   mutate(
+#     county = case_when(
+#       BoroCode == "1" ~ "061", 
+#       BoroCode == "2" ~ "005", 
+#       BoroCode == "3" ~ "047", 
+#       BoroCode == "4" ~ "081", 
+#       BoroCode == "5" ~ "085" 
+#     ), 
+#     GEO_ID = paste0("1400000US36", county, CT2010)
+#   )
+# 
+# # Pull Total Pop (S0101_C01_001E) AND Median Income (S1901_C01_012E)
+# ct_pop_inc <- getCensus(
+#   name = "acs/acs5/subject",
+#   vintage = 2019,
+#   vars = c("NAME", "GEO_ID", "S0101_C01_001E", "S1901_C01_012E"), 
+#   region = "tract:*", 
+#   regionin = "state:36+county:005,047,081,085,061") %>%
+#   # The Census uses negative numbers (e.g., -666666666) for missing median incomes. Clean these to NA.
+#   mutate(S1901_C01_012E = ifelse(S1901_C01_012E < 0, NA, S1901_C01_012E))
+# 
+# # Join spatial data with census population & income
+# ct_acs <- ct_pop_inc %>%
+#   left_join(ct_shp %>% select(!c("county", "BoroCT2010", "BoroCode")), by = "GEO_ID") %>%
+#   st_as_sf() %>%
+#   st_transform("+proj=longlat +datum=WGS84")
+# 
+# st_write(ct_acs, "../data/processed/ct_acs.geojson", driver='GeoJSON', delete_dsn=TRUE)
+```
+
+
+
+
+
+
+

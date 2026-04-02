@@ -1,0 +1,194 @@
+---
+title: "04_park_cd_map"
+output: html_document
+---
+
+*Changes: Updated all maps to reflect CDs, added the 4 new maps based on Rose's suggestions, upgraded some pop-up styling.*
+
+```{r setup, include=FALSE}
+source("../code/01_load_dependencies.R")
+# Load the data and transform to standard Longitude/Latitude (WGS84) for Leaflet
+cd_final <- st_read("../data/processed/cd_final_equity.geojson") %>%
+  st_transform("+proj=longlat +datum=WGS84")
+```
+
+```{r map-setup}
+# 1. Structured Pop-Ups
+labels_cd <- paste(
+  "<div style='font-family: \"Open Sans\", Helvetica, sans-serif; min-width: 220px; font-size: 13px; color: #333;'>",
+    
+    # Header
+    "<h3 style='margin-top: 0; margin-bottom: 8px; padding-bottom: 5px; border-bottom: 2px solid #8744BC; color: #000;'>",
+      "Council District ", cd_final$councildist, 
+    "</h3>",
+    
+    # Demographics Section
+    "<h4 style='margin: 10px 0 4px 0; color: #555; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px;'>",
+      "Demographics",
+    "</h4>",
+    "<div style='margin-left: 8px;'>",
+      "<b>Total Population:</b> ", scales::comma(cd_final$TotalPop), "<br>",
+      "<b>Median Income:</b> ", scales::dollar(cd_final$MedInc), "<br>",
+      "<b>Non-Hispanic White:</b> ", round(cd_final$Perc_NHWhite, 1), "%",
+    "</div>",
+    
+    # Vulnerable Groups Section
+    "<h4 style='margin: 10px 0 4px 0; color: #555; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px;'>",
+      "Vulnerable Groups",
+    "</h4>",
+    "<div style='margin-left: 8px;'>",
+      "<b>Under 18:</b> ", scales::comma(cd_final$Pop_Under18), " (", round(cd_final$Perc_Under18, 1), "%)<br>",
+      "<b>Over 65:</b> ", scales::comma(cd_final$Pop_Over65), " (", round(cd_final$Perc_Over65, 1), "%)<br>",
+      "<b>SNAP Households:</b> ", round(cd_final$Perc_SNAP, 1), "%",
+    "</div>",
+    
+    # Park Access Section
+    "<h4 style='margin: 10px 0 4px 0; color: #555; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px;'>",
+      "Park Access <small>(Acres per 100k)</small>",
+    "</h4>",
+    "<div style='margin-left: 8px;'>",
+      "<b>Overall:</b> ", scales::comma(round(cd_final$facre_pc * 100000, 1)), "<br>",
+      "<b>Under 18:</b> ", scales::comma(round(cd_final$facre_pc_under18 * 100000, 1)), "<br>",
+      "<b>Over 65:</b> ", scales::comma(round(cd_final$facre_pc_over65 * 100000, 1)),
+    "</div>",
+    
+  "</div>"
+)
+
+# park_access outline for Bottom 25% of CD Park Access
+recode <- cd_final %>% mutate(bottom25 = ifelse(facre_pc * 100000 < quantile(facre_pc * 100000, 0.25, na.rm=T), 1, 0))
+rr <- HTML('<small> Source: Councilcount (ACS), NYC Parks </small>')
+park_access <- HTML('<div style="color: #8744BC;"> <strong>Bottom 25%</strong> <br>  Park Access</div>')
+```
+
+```{r helper-map-function}
+# 2. Dynamic Binning 
+generate_map <- function(data, variable, palette_colors, title, label_format, color_outline = "#8744BC", round_digits = 0) {
+  
+  # Calculate Jenks Natural Breaks
+  dynamic_breaks <- classInt::classIntervals(variable[!is.na(variable)], 
+                                             n = length(palette_colors), 
+                                             style = "jenks")$brks
+  
+  # Round the breaks based on the specified digits (0 for whole numbers, 1 for percentages)
+  dynamic_breaks <- round(dynamic_breaks, round_digits)
+  
+  # Ensure the min and max fully enclose the data so rounding doesn't accidentally drop districts
+  if (round_digits == 0) {
+    dynamic_breaks[1] <- floor(min(variable, na.rm = TRUE))
+    dynamic_breaks[length(dynamic_breaks)] <- ceiling(max(variable, na.rm = TRUE))
+  } else {
+    dynamic_breaks[1] <- floor(min(variable, na.rm = TRUE) * 10) / 10
+    dynamic_breaks[length(dynamic_breaks)] <- ceiling(max(variable, na.rm = TRUE) * 10) / 10
+  }
+  
+  # Keep only unique breaks (in cases where rounding collapses two bins)
+  dynamic_breaks <- unique(dynamic_breaks)
+  
+  # Create the color palette with the rounded, clean breaks
+  pal <- colorBin(palette = palette_colors, domain = variable, bins = dynamic_breaks, na.color = "#CACACA")
+  
+  # Build and return the leaflet map
+  leaflet(options = leafletOptions(zoomControl = FALSE)) %>%
+    setView(-73.984865, 40.710542, 10.5) %>%
+    setMapWidgetStyle(list(background= "white")) %>% 
+    addPolygons(data = data, 
+                weight = 1, opacity = 0.5,
+                color = ~pal(variable), 
+                fillColor = ~pal(variable),
+                fillOpacity = 0.8, 
+                popup = lapply(labels_cd, HTML),
+                
+                # --- HOVER EFFECT ---
+                highlightOptions = highlightOptions(
+                  weight = 3,           # Thicker border on hover
+                  color = "#FFFFFF",    # White border to pop out
+                  fillOpacity = 1,      # Lights up to 100% opacity
+                  bringToFront = TRUE   # Brings hovered district to top
+                )) %>% 
+    
+    # Bottom 25% outline
+    addPolygons(data = recode, weight = 2, fill=F, opacity = 1,
+                color = color_outline, stroke = recode$bottom25,
+                # Make the outline pass-through so it doesn't block the hover effect
+                options = pathOptions(interactive = FALSE)) %>% 
+    
+    addLegend(position ="topleft", pal = pal, opacity = 0.9, values = variable,
+              title = title, labFormat = label_format) %>% 
+    addControl(rr, position = "bottomright") %>% 
+    addControl(park_access, position = "topleft")  
+}
+```
+
+```{r create-maps}
+# 3. Create & Save
+
+# a) Park Access (Rounded to nearest whole acre)
+map_acres <- generate_map(cd_final, cd_final$facre_pc * 100000, 
+                          c('#eaf5ef', '#b6d4bd', '#83b48d', '#4f9560', '#007534'), 
+                          "<strong>Park Acreage:</strong><hr><small>Per 100k Residents</small>", 
+                          labelFormat(), round_digits = 0)
+
+# b) Median Income (Rounded to nearest dollar)
+map_inc <- generate_map(cd_final, cd_final$MedInc, 
+                        c('#d5dded', '#afb9db', '#8996ca', '#6175b8', '#2f56a6'), 
+                        "<strong>Median Household Income</strong><hr>", 
+                        labelFormat(prefix = "$", big.mark = ","), "#800000", round_digits = 0)
+
+# c) NH White (Rounded to 1 decimal place)
+map_nhw <- generate_map(cd_final, cd_final$Perc_NHWhite, 
+                        c('#e6dfd3', '#cfbea5', '#b79e7a', '#9e7f4f', '#846126'), 
+                        "<strong>Non-Hispanic White</strong><hr>", 
+                        labelFormat(suffix = "%"), round_digits = 1)
+
+# d) Under 18 Population Count
+map_u18 <- generate_map(cd_final, cd_final$Pop_Under18, 
+                        c('#fce4ec', '#f8bbd0', '#f06292', '#e91e63', '#880e4f'), 
+                        "<strong>Under 18 Population</strong><hr>", 
+                        labelFormat(big.mark = ","), round_digits = 0)
+
+# e) Acres per 100k Under 18
+map_acres_u18 <- generate_map(cd_final, cd_final$facre_pc_under18 * 100000, 
+                              c('#eaf5ef', '#b6d4bd', '#83b48d', '#4f9560', '#007534'), 
+                              "<strong>Park Acreage:</strong><hr><small>Per 100k Under 18</small>", 
+                              labelFormat(), round_digits = 0)
+
+# f) Over 65 Population Count
+map_o65 <- generate_map(cd_final, cd_final$Pop_Over65, 
+                        c('#fff3e0', '#ffcc80', '#ff9800', '#f57c00', '#e65100'), 
+                        "<strong>Over 65 Population</strong><hr>", 
+                        labelFormat(big.mark = ","), round_digits = 0)
+
+# g) Acres per 100k Over 65
+map_acres_o65 <- generate_map(cd_final, cd_final$facre_pc_over65 * 100000, 
+                              c('#eaf5ef', '#b6d4bd', '#83b48d', '#4f9560', '#007534'), 
+                              "<strong>Park Acreage:</strong><hr><small>Per 100k Over 65</small>", 
+                              labelFormat(), round_digits = 0)
+
+# h) % SNAP / Public Assistance 
+map_snap <- generate_map(cd_final, cd_final$Perc_SNAP, 
+                         c('#e1f5fe', '#81d4fa', '#29b6f6', '#039be5', '#01579b'), 
+                         "<strong>Households on SNAP</strong><hr>", 
+                         labelFormat(suffix = "%"), round_digits = 1)
+
+# Save 
+saveWidget(map_acres, file = "../figures/cd_acreage.html")
+saveWidget(map_inc, file = "../figures/cd_median_income.html")
+saveWidget(map_nhw, file = "../figures/cd_NH_White.html")
+saveWidget(map_u18, file = "../figures/cd_under18.html")
+saveWidget(map_acres_u18, file = "../figures/cd_acreage_under18.html")
+saveWidget(map_o65, file = "../figures/cd_over65.html")
+saveWidget(map_acres_o65, file = "../figures/cd_acreage_over65.html")
+saveWidget(map_snap, file = "../figures/cd_SNAP.html")
+
+# Display
+map_acres
+map_inc
+map_nhw
+map_u18
+map_acres_u18
+map_o65
+map_acres_o65
+map_snap
+```
+

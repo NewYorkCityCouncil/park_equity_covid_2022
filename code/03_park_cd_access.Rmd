@@ -1,0 +1,218 @@
+---
+title: "03_park_cd_access"
+output: html_document
+---
+
+*Changes: This replaces BOTH `park_ct.R` and `park_modzcta.R`. We calculate the CT-level access as before, but then immediately spatially join the CT centroids to the CD polygons, performing a population-weighted roll-up to the CD level. When rolling CTs up to CDs, we now calculate a population-weighted average of median income at the same time we calculate population-weighted park access, since councilcount does not provide income estimates.* 
+
+*Important Note: Our methodology for population-weighted park access differs from the original logic, which first found the population-weighted average walkable acres, sum(acres × population)/sum(population), across all of the CTs in a MODZCTA, and then divided that by the MODZCTA population again to get an acres per population estimate. The flaw with this original methodology is that it ends up penalizing areas with larger populations by forcing two distinct divisions by the overall population, which translates to dividing the average number of acres accessible to a typical MODZCTA resident by all of the individuals within that MODZCTA. In other words, this method assumed that everyone in the entire MODZCTA was trying to cram into the exact same average walking radius, which caused the per-capita numbers to shrink artificially in highly populated MODZCTAs. We initially detected this flaw when comparing our CD (which are even larger than MODZCTAs in population) estimates to the original project's MODZCTA estimates, observing that most of the MODZCTAs nested within any given CD were found to have significantly higher park access. Moreover, we found that the more populated MODZCTAs within a given CD had estimates closer to those of our CD-level ones. Take two neighborhoods nested within CD1, for which our estimate was approximately 19.7 acres per 100k residents. The original project found 92.6 acres per 100k residents in Chinatown, a much more populated region than Financial District, which had an estimate of 1,670.5 acres per 100,000 residents. This illustrates how the population-penalization problem was already evident in the original project. Therefore, to avoid this issue, we have switched to a more robust yet simpler methodology for calculating park access: calculating the population-weighted average of the per-capita access rates within each CT in a CD. Mathematically, this can be written out as (sum((acres/population) × population))/sum(population) or sum(rate × population)/sum(population), which then simplifies to sum(acres)/sum(population), effectively dividing all accessible acres within a CD by the total population of that CD. It appears as if the original project might have intended to use this same methodology as well (they calculate the per-capita access as the f_acre_pc variable in park_ct.R, but then never use it in the aggregation and instead use the f_acre_pc variable which is just the functional acreage). It should also be noted that both the original methodology as well as this new one double count parks that fall within a 10-minute radius of multiple CTs, but this is not an issue since we care about the average local access experience rather than a strict inventory of unique park acres within a CD.*
+
+```{r setup, include=FALSE}
+source("../code/01_load_dependencies.R")
+```
+
+### Calculate Access at CT Level
+```{r ct-access}
+# Load CT data, keeping Population and Median Income
+ct_acs <- st_read("../data/processed/ct_acs.geojson") %>% 
+  rename(population = S0101_C01_001E,
+         ct_medinc = S1901_C01_012E) %>%
+  mutate(
+    population = as.numeric(population),
+    ct_medinc = as.numeric(ct_medinc)
+  )
+
+pm <- read.csv("../data/processed/park_maintenance.csv", header = TRUE) %>%
+  rename(pm_combine = property_number) %>%
+  mutate(
+    f_acre_cap = ifelse(functional_acreage > 160.6979, 160.6979, functional_acreage), 
+    t_acre_cap = ifelse(total_acreage > 160.6979, 160.6979, total_acreage)
+  )
+
+cross_park <- read.csv("../data/raw/pm_property_number_crosswalk.csv", header = TRUE)
+
+iso <- st_read("../data/processed/isochrones_10min_accesspts.geojson") %>%
+  left_join(cross_park, by = c("gispropnum" = "property_number")) %>%
+  mutate(pm_combine = ifelse(is.na(pm_combine), gispropnum, pm_combine), 
+         pm_combine = ifelse(pm_combine=="N/A", parkname, pm_combine))
+
+iso_pm <- iso %>% left_join(pm, by = "pm_combine") 
+
+ct_access <- ct_acs %>% 
+  mutate(center = st_centroid(geometry, of_largest_polygon = TRUE)) %>% 
+  st_drop_geometry() %>%
+  st_as_sf() %>%
+  st_join(iso_pm) %>%
+  select(GEO_ID, pm_combine) %>%
+  st_drop_geometry() %>%
+  unique()
+
+# Group CTs to get Total Functional Acreage, Pop, and MedInc per CT
+ct_grouped <- ct_access %>%
+  left_join(pm, by = "pm_combine") %>%
+  left_join(ct_acs, by = "GEO_ID") %>%
+  group_by(GEO_ID) %>%
+  summarise(
+    f_acre_sum = sum(f_acre_cap, na.rm = TRUE),
+    population = first(population),
+    ct_medinc = first(ct_medinc)
+  ) %>%
+  unique() %>%
+  right_join(ct_acs %>% select(GEO_ID, geometry), by = "GEO_ID") %>%
+  st_as_sf()
+```
+
+### Crosswalk to Council Districts via Spatial Join
+```{r cd-crosswalk}
+cd_acs <- st_read("../data/processed/cd_acs.geojson")
+
+# Get centroids of CTs
+ct_centroids <- ct_grouped %>%
+  mutate(geometry = st_centroid(geometry)) %>%
+  st_transform(st_crs(cd_acs)) # ensure crs matches CD geometry
+
+# Spatial Join: Assign each CT centroid to a CD
+ct_to_cd <- st_join(ct_centroids, cd_acs %>% select(councildist)) %>%
+  st_drop_geometry() %>%
+  filter(!is.na(councildist)) # drop if falls outside CD boundaries
+
+# Population-weighted aggregations
+cd_facre_rollup <- ct_to_cd %>%
+  group_by(councildist) %>%
+  summarise(
+    # Big Change: The mathematically sound way to population-weight a per-capita rate
+    # Algebraic simplification of: Sum( (Acres/Pop) * Pop ) / Sum(Pop)
+    facre_pc_from_ct = sum(f_acre_sum, na.rm = TRUE) / sum(population, na.rm = TRUE),
+    
+    # Weighted average of Median Income
+    MedInc = sum(ct_medinc * population, na.rm = TRUE) / sum(population, na.rm = TRUE)
+  )
+
+# Merge back with CD demographic data & calculate target variables
+cd_final <- cd_acs %>%
+  left_join(cd_facre_rollup, by = "councildist") %>%
+  mutate(
+    # Set the overall per-capita rate
+    facre_pc = facre_pc_from_ct,
+    
+    # Proportional scaling for vulnerable subsets. 
+    facre_pc_under18 = ifelse(Pop_Under18 > 0, facre_pc * (TotalPop / Pop_Under18), NA),
+    facre_pc_over65 = ifelse(Pop_Over65 > 0, facre_pc * (TotalPop / Pop_Over65), NA)
+  )
+
+st_write(cd_final, "../data/processed/cd_final_equity.geojson", driver='GeoJSON', delete_dsn=TRUE)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# --- Nick's Old Approach Code (only uncomment and run if you want to see estimates that we'd get from his approach) ---
+
+### Calculate Access at CT Level
+```{r ct-access}
+# # Load CT data, keeping Population and Median Income
+# ct_acs <- st_read("../data/processed/ct_acs.geojson") %>% 
+#   rename(population = S0101_C01_001E,
+#          ct_medinc = S1901_C01_012E)
+# 
+# pm <- read.csv("../data/processed/park_maintenance.csv", header = TRUE) %>%
+#   rename(pm_combine = property_number) %>%
+#   mutate(
+#     f_acre_cap = ifelse(functional_acreage > 160.6979, 160.6979, functional_acreage), 
+#     t_acre_cap = ifelse(total_acreage > 160.6979, 160.6979, total_acreage)
+#   )
+# 
+# cross_park <- read.csv("../data/raw/pm_property_number_crosswalk.csv", header = TRUE)
+# 
+# iso <- st_read("../data/processed/isochrones_10min_accesspts.geojson") %>%
+#   left_join(cross_park, by = c("gispropnum" = "property_number")) %>%
+#   mutate(pm_combine = ifelse(is.na(pm_combine), gispropnum, pm_combine), 
+#          pm_combine = ifelse(pm_combine=="N/A", parkname, pm_combine))
+# 
+# iso_pm <- iso %>% left_join(pm, by = "pm_combine") 
+# 
+# ct_access <- ct_acs %>% 
+#   mutate(center = st_centroid(geometry, of_largest_polygon = TRUE)) %>% 
+#   st_drop_geometry() %>%
+#   st_as_sf() %>%
+#   st_join(iso_pm) %>%
+#   select(GEO_ID, pm_combine) %>%
+#   st_drop_geometry() %>%
+#   unique()
+# 
+# # Group CTs to get Total Functional Acreage, Pop, and MedInc per CT
+# ct_grouped <- ct_access %>%
+#   left_join(pm, by = "pm_combine") %>%
+#   left_join(ct_acs, by = "GEO_ID") %>%
+#   group_by(GEO_ID) %>%
+#   summarise(
+#     f_acre_sum = sum(f_acre_cap, na.rm = TRUE),
+#     population = first(population),
+#     ct_medinc = first(ct_medinc)
+#   ) %>%
+#   unique() %>%
+#   right_join(ct_acs %>% select(GEO_ID, geometry), by = "GEO_ID") %>%
+#   st_as_sf()
+```
+
+### Crosswalk to Council Districts via Spatial Join
+```{r cd-crosswalk}
+# cd_acs <- st_read("data/processed/cd_acs.geojson")
+# 
+# # Get centroids of census tracts
+# ct_centroids <- ct_grouped %>%
+#   mutate(geometry = st_centroid(geometry)) %>%
+#   st_transform(st_crs(cd_acs)) # ensure crs matches CD geometry
+# 
+# # Spatial Join: Assign each CT centroid to a Council District
+# ct_to_cd <- st_join(ct_centroids, cd_acs %>% select(councildist)) %>%
+#   st_drop_geometry() %>%
+#   filter(!is.na(councildist)) # drop if falls outside CD boundaries
+# 
+# # Population-weighted average of functional acreage AND Median Income per CD
+# cd_facre_rollup <- ct_to_cd %>%
+#   group_by(councildist) %>%
+#   summarise(
+#     # Weighted average of the functional acres available to residents in that CD
+#     cd_facre = sum(f_acre_sum * population, na.rm = TRUE) / sum(population, na.rm = TRUE),
+#     # Weighted average of Median Income
+#     MedInc = sum(ct_medinc * population, na.rm = TRUE) / sum(population, na.rm = TRUE)
+#   )
+# 
+# # Merge back with CD demographic data & Calculate target variables
+# cd_final <- cd_acs %>%
+#   left_join(cd_facre_rollup, by = "councildist") %>%
+#   mutate(
+#     # Standard per capita
+#     facre_pc = ifelse(TotalPop > 0, cd_facre / TotalPop, NA),
+#     
+#     # Custom denominators requested
+#     facre_pc_under18 = ifelse(Pop_Under18 > 0, cd_facre / Pop_Under18, NA),
+#     facre_pc_over65 = ifelse(Pop_Over65 > 0, cd_facre / Pop_Over65, NA)
+#   )
+# 
+# st_write(cd_final, "../data/processed/cd_final_equity.geojson", driver='GeoJSON', delete_dsn=TRUE)
+```
+
+
+
+
+
+

@@ -1,0 +1,138 @@
+---
+title: "05_park_cd_corr"
+output: html_document
+---
+
+*Changes: Added the new scatter plots comparing standard per-capita park access against the CD demographic percentages, made the points present information upon hover.*
+
+```{r setup, include=FALSE}
+source("../code/01_load_dependencies.R")
+cd_final <- st_read("../data/processed/cd_final_equity.geojson") %>% filter(TotalPop > 0)
+
+# Download/load the Open Sans font from Google Fonts
+font_add_google("Open Sans", "Open Sans")
+# Load a standard serif font to stand in for Georgia 
+font_add_google("PT Serif", "Georgia") 
+# Turn on showtext so ggplot knows to use it
+showtext_auto()
+```
+
+```{r helper-theme}
+# Helper function for interactive scatter plots with similar theme to past work
+generate_interactive_scatter <- function(data, y_var, y_label, point_color, y_format_func, title_suffix) {
+
+  # Use tidy evaluation to handle the dynamic y_var
+  y_var_enquo <- enquo(y_var)
+  
+  # Prepare the data with a new multi-line tooltip string
+  plot_data <- data %>%
+    mutate(
+      x_rank = rank(facre_pc),
+      # Combine all desired info into a single tooltip string.
+      # Use HTML <br> for line breaks and <b> for bolding.
+      tooltip_text = sprintf(
+        "<b>Council District: %s</b><br>Park Access Rank: %d<br>%s: %s",
+        councildist,
+        x_rank,
+        y_label,
+        y_format_func({{y_var_enquo}})
+      )
+    )
+  
+  # Calculate correlation stats
+  test <- cor.test(plot_data$x_rank, plot_data %>% pull({{y_var_enquo}}), use = "complete.obs")
+  r_val <- round(test$estimate, 2)
+  p_val <- test$p.value
+  p_str <- ifelse(p_val < 0.001, "< 0.001", sprintf("%.3f", p_val))
+  stats_label <- paste0("r = ", r_val, "\np = ", p_str)
+  
+  # Build the ggplot object
+  p <- ggplot(plot_data, aes(x = x_rank, y = {{y_var_enquo}})) + 
+    geom_smooth(method = "lm", se = FALSE, color = "gray50", linetype = "dashed") +
+    
+    # FIX: Remove the 'onclick' aesthetic entirely. All info is now in the tooltip.
+    geom_point_interactive(aes(tooltip = tooltip_text, data_id = councildist),
+                           color = point_color, size = 2.5) +
+                           
+    annotate("text", x = -Inf, y = Inf, label = stats_label, 
+             hjust = -0.2, vjust = 1.3, family = "Open Sans", fontface = "bold", size = 4) +
+    scale_y_continuous(labels = y_format_func, expand = expansion(mult = c(0.05, 0.2))) +
+    labs(
+      title = "Park Equity in NYC",
+      subtitle = paste("Comparing Park Acreage and", title_suffix, "by Council District"),
+      x = "Park Acreage (Functional Acreage Per Capita)\nRanked from Least to Greatest",
+      y = y_label,
+      caption = "Source: Councilcount (ACS); NYC Parks: Walk-to-a-Park"
+    ) +
+    theme(
+      text = element_text(family = "Open Sans"),
+      panel.grid.major = element_blank(), panel.background = element_blank(),
+      axis.line = element_line(colour = "black"), panel.grid.minor = element_blank(),
+      plot.title = element_text(family = "Georgia", size = 16),
+      plot.subtitle = element_text(family = "Georgia", size = 12, margin = margin(b=10)),
+      axis.title.y = element_text(size = 11, margin = margin(r = 10)),
+      axis.title.x = element_text(size = 11, margin = margin(t = 10))
+    )
+    
+  return(p)
+}
+```
+
+```{r correlations}
+# Plot & Save
+interactive_opts <- list(
+  opts_hover(css = "fill:#FFC300;stroke:black;stroke-width:1px;")
+)
+
+# --- Plot A: Park Access vs NH White ---
+plot_nhw <- generate_interactive_scatter(
+  data = cd_final, y_var = Perc_NHWhite, y_label = "Non-Hispanic White (%)", 
+  point_color = "#846126", y_format_func = function(y) scales::percent(y, scale=1), 
+  title_suffix = "Race"
+)
+interactive_plot_nhw <- girafe(ggobj = plot_nhw, width_svg = 10, height_svg = 6, options = interactive_opts)
+print(interactive_plot_nhw)
+saveWidget(interactive_plot_nhw, file = "../figures2/cd_acreage_race_scatter.html")
+
+# --- Plot B: Park Access vs Median Income ---
+plot_inc <- generate_interactive_scatter(
+  data = cd_final, y_var = MedInc, y_label = "Median Household Income", 
+  point_color = "#2f56a6", y_format_func = scales::dollar,
+  title_suffix = "Median Income"
+)
+interactive_plot_inc <- girafe(ggobj = plot_inc, width_svg = 10, height_svg = 6, options = interactive_opts)
+print(interactive_plot_inc)
+saveWidget(interactive_plot_inc, file = "../figures2/cd_acreage_income_scatter.html")
+
+# --- Plot C: Park Access vs % Under 18 ---
+plot_u18 <- generate_interactive_scatter(
+  data = cd_final, y_var = Perc_Under18, y_label = "Population Under 18 (%)", 
+  point_color = "#e91e63", y_format_func = function(y) scales::percent(y, scale=1),
+  title_suffix = "Under 18 Population"
+)
+interactive_plot_u18 <- girafe(ggobj = plot_u18, width_svg = 10, height_svg = 6, options = interactive_opts)
+print(interactive_plot_u18)
+saveWidget(interactive_plot_u18, file = "../figures2/cd_acreage_under18_scatter.html")
+
+# --- Plot D: Park Access vs % Over 65 ---
+plot_o65 <- generate_interactive_scatter(
+  data = cd_final, y_var = Perc_Over65, y_label = "Population Over 65 (%)", 
+  point_color = "#f57c00", y_format_func = function(y) scales::percent(y, scale=1),
+  title_suffix = "Over 65 Population"
+)
+interactive_plot_o65 <- girafe(ggobj = plot_o65, width_svg = 10, height_svg = 6, options = interactive_opts)
+print(interactive_plot_o65)
+saveWidget(interactive_plot_o65, file = "../figures2/cd_acreage_over65_scatter.html")
+
+# --- Plot E: Park Access vs % SNAP ---
+plot_snap <- generate_interactive_scatter(
+  data = cd_final, y_var = Perc_SNAP, y_label = "Households receiving SNAP (%)", 
+  point_color = "#039be5", y_format_func = function(y) scales::percent(y, scale=1),
+  title_suffix = "Public Assistance"
+)
+interactive_plot_snap <- girafe(ggobj = plot_snap, width_svg = 10, height_svg = 6, options = interactive_opts)
+print(interactive_plot_snap)
+saveWidget(interactive_plot_snap, file = "../figures2/cd_acreage_snap_scatter.html")
+```
+
+
