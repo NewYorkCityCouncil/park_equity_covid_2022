@@ -3,7 +3,7 @@ title: "Create Processed Data"
 output: html_document
 ---
 
-*Changes: 1. Replaced ZCTA/MODZCTA API pulls with councilcount's `get_geo_estimates()` call for CD-level estimates (most variables), but kept the CT-level spatial data pull since it is needed to intersect with the Park Isochrones, and also for the median income variable. 2. Switched from 2010 census (2019 ACS) to 2020 census (2020 ACS, to match councilcount estimates).*
+*Changes: 1. Replaced ZCTA/MODZCTA API pulls with councilcount's `get_geo_estimates()` call for CD-level estimates (most variables), but kept the CT-level spatial data pull since it is needed to intersect with the Park Isochrones, and also for the median income variable. 2. Switched from 2010 census (2019 ACS) to 2020 census (2022 ACS, to match councilcount estimates).*
 
 ```{r setup, include=FALSE}
 source("../code/01_load_dependencies.R") 
