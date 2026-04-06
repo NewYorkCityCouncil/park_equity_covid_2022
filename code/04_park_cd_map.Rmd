@@ -7,7 +7,7 @@ output: html_document
 
 ```{r setup, include=FALSE}
 source("../code/01_load_dependencies.R")
-# Load the data and transform to standard Longitude/Latitude (WGS84) for Leaflet
+# Load the data and transform to standard longitude/latitude (WGS84) for Leaflet
 cd_final <- st_read("../data/processed/cd_final_equity.geojson") %>%
   st_transform("+proj=longlat +datum=WGS84")
 ```
@@ -55,7 +55,7 @@ labels_cd <- paste(
   "</div>"
 )
 
-# park_access outline for Bottom 25% of CD Park Access
+# park_access outline for bottom 25% of CD park access
 recode <- cd_final %>% mutate(bottom25 = ifelse(facre_pc * 100000 < quantile(facre_pc * 100000, 0.25, na.rm=T), 1, 0))
 rr <- HTML('<small> Source: Councilcount (ACS), NYC Parks </small>')
 park_access <- HTML('<div style="color: #8744BC;"> <strong>Bottom 25%</strong> <br>  Park Access</div>')
@@ -65,7 +65,7 @@ park_access <- HTML('<div style="color: #8744BC;"> <strong>Bottom 25%</strong> <
 # 2. Dynamic Binning 
 generate_map <- function(data, variable, palette_colors, title, label_format, color_outline = "#8744BC", round_digits = 0) {
   
-  # Calculate Jenks Natural Breaks
+  # Calculate Jenks natural breaks
   dynamic_breaks <- classInt::classIntervals(variable[!is.na(variable)], 
                                              n = length(palette_colors), 
                                              style = "jenks")$brks
@@ -85,7 +85,7 @@ generate_map <- function(data, variable, palette_colors, title, label_format, co
   # Keep only unique breaks (in cases where rounding collapses two bins)
   dynamic_breaks <- unique(dynamic_breaks)
   
-  # Create the color palette with the rounded, clean breaks
+  # Create the color palette with the clean breaks
   pal <- colorBin(palette = palette_colors, domain = variable, bins = dynamic_breaks, na.color = "#CACACA")
   
   # Build and return the leaflet map
@@ -98,8 +98,6 @@ generate_map <- function(data, variable, palette_colors, title, label_format, co
                 fillColor = ~pal(variable),
                 fillOpacity = 0.8, 
                 popup = lapply(labels_cd, HTML),
-                
-                # --- HOVER EFFECT ---
                 highlightOptions = highlightOptions(
                   weight = 3,           # Thicker border on hover
                   color = "#FFFFFF",    # White border to pop out

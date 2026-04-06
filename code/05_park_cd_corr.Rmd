@@ -9,7 +9,7 @@ output: html_document
 source("../code/01_load_dependencies.R")
 cd_final <- st_read("../data/processed/cd_final_equity.geojson") %>% filter(TotalPop > 0)
 
-# Download/load the Open Sans font from Google Fonts
+# Load Open Sans from Google Fonts
 font_add_google("Open Sans", "Open Sans")
 # Load a standard serif font to stand in for Georgia 
 font_add_google("PT Serif", "Georgia") 
@@ -18,13 +18,13 @@ showtext_auto()
 ```
 
 ```{r helper-theme}
-# Helper function for interactive scatter plots with similar theme to past work
+# Helper function for interactive scatter plots 
 generate_interactive_scatter <- function(data, y_var, y_label, point_color, y_format_func, title_suffix) {
 
   # Use tidy evaluation to handle the dynamic y_var
   y_var_enquo <- enquo(y_var)
   
-  # Prepare the data with a new multi-line tooltip string
+  # Prepare the data with a multi-line tooltip string
   plot_data <- data %>%
     mutate(
       x_rank = rank(facre_pc),
@@ -50,7 +50,6 @@ generate_interactive_scatter <- function(data, y_var, y_label, point_color, y_fo
   p <- ggplot(plot_data, aes(x = x_rank, y = {{y_var_enquo}})) + 
     geom_smooth(method = "lm", se = FALSE, color = "gray50", linetype = "dashed") +
     
-    # FIX: Remove the 'onclick' aesthetic entirely. All info is now in the tooltip.
     geom_point_interactive(aes(tooltip = tooltip_text, data_id = councildist),
                            color = point_color, size = 2.5) +
                            

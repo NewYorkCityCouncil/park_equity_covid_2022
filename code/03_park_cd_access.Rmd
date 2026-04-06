@@ -13,7 +13,7 @@ source("../code/01_load_dependencies.R")
 
 ### Calculate Access at CT Level
 ```{r ct-access}
-# Load CT data, keeping Population and Median Income
+# Load CT data, keeping population and median income
 ct_acs <- st_read("../data/processed/ct_acs.geojson") %>% 
   rename(population = S0101_C01_001E,
          ct_medinc = S1901_C01_012E) %>%
@@ -22,6 +22,7 @@ ct_acs <- st_read("../data/processed/ct_acs.geojson") %>%
     ct_medinc = as.numeric(ct_medinc)
   )
 
+# Load 2024 park maintenance data
 pm <- read.csv("../data/processed/park_maintenance.csv", header = TRUE) %>%
   rename(pm_combine = property_number) %>%
   mutate(
@@ -47,7 +48,7 @@ ct_access <- ct_acs %>%
   st_drop_geometry() %>%
   unique()
 
-# Group CTs to get Total Functional Acreage, Pop, and MedInc per CT
+# Group CTs to get total functional acreage, population, and median income per CT
 ct_grouped <- ct_access %>%
   left_join(pm, by = "pm_combine") %>%
   left_join(ct_acs, by = "GEO_ID") %>%
@@ -71,7 +72,7 @@ ct_centroids <- ct_grouped %>%
   mutate(geometry = st_centroid(geometry)) %>%
   st_transform(st_crs(cd_acs)) # ensure crs matches CD geometry
 
-# Spatial Join: Assign each CT centroid to a CD
+# Assign each CT centroid to a CD
 ct_to_cd <- st_join(ct_centroids, cd_acs %>% select(councildist)) %>%
   st_drop_geometry() %>%
   filter(!is.na(councildist)) # drop if falls outside CD boundaries
@@ -80,11 +81,11 @@ ct_to_cd <- st_join(ct_centroids, cd_acs %>% select(councildist)) %>%
 cd_facre_rollup <- ct_to_cd %>%
   group_by(councildist) %>%
   summarise(
-    # Big Change: The mathematically sound way to population-weight a per-capita rate
+    # Change from Nick's original methodology for scaling up to larger geography from CTs here!
     # Algebraic simplification of: Sum( (Acres/Pop) * Pop ) / Sum(Pop)
     facre_pc_from_ct = sum(f_acre_sum, na.rm = TRUE) / sum(population, na.rm = TRUE),
     
-    # Weighted average of Median Income
+    # Weighted average of median income (no change here)
     MedInc = sum(ct_medinc * population, na.rm = TRUE) / sum(population, na.rm = TRUE)
   )
 

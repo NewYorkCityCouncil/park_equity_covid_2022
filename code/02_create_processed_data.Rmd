@@ -3,7 +3,7 @@ title: "Create Processed Data"
 output: html_document
 ---
 
-*Changes: 1. Replaced ZCTA/MODZCTA API pulls with councilcount's `get_geo_estimates()` call for CD-level estimates (most variables), but kept the CT-level spatial data pull since it is needed to intersect with the Park Isochrones, and also for the median income variable. 2. Switched from 2010 census (2019 ACS) to 2020 census (2022 ACS, to match councilcount estimates).*
+*Changes: 1. Replaced ZCTA/MODZCTA API pulls with councilcount's `get_geo_estimates()` call for CD-level estimates (most variables), but kept the CT-level spatial data pull since it is needed to intersect with the park isochrones, and also for the median income variable. 2. Switched from 2010 census (2019 ACS) to 2020 census (2022 ACS, to match councilcount estimates).*
 
 ```{r setup, include=FALSE}
 source("../code/01_load_dependencies.R") 
@@ -11,7 +11,7 @@ source("../code/01_load_dependencies.R")
 
 ### Import and Clean ACS Census Tract Data (For Isochrones & Median Income)
 ```{r ct-data}
-# Set Census API Key
+# Set census API key
 Sys.setenv(CENSUS_API_KEY = "8eb345ebff3eef0f3f10891ef6a297781eefd283")
 
 # Pull 2020 CTs from Open Data 
@@ -19,11 +19,11 @@ Sys.setenv(CENSUS_API_KEY = "8eb345ebff3eef0f3f10891ef6a297781eefd283")
 url_2020_ct <- "https://data.cityofnewyork.us/api/geospatial/63ge-mke6?method=export&format=GeoJSON"
 
 ct_shp <- sf::read_sf(url_2020_ct) %>%
-  # The 2020 file contains an 11-digit 'geoid' (e.g., "36061000100").
-  # We append "1400000US" to match the ACS API GEO_ID format exactly.
+  # The 2020 file contains an 11-digit 'geoid' (e.g., "36061000100")
+  # We append "1400000US" to match the ACS API GEO_ID format exactly
   mutate(GEO_ID = paste0("1400000US", geoid))
 
-# Pull 2022 ACS Data at the CT Level (Total Pop & Median Income)
+# Pull 2022 ACS data at the CT Level (total pop & median income)
 ct_pop_inc <- getCensus(
   name = "acs/acs5/subject",
   vintage = 2022, # 2022 ACS to match councilcount vintage
@@ -45,12 +45,12 @@ st_write(ct_acs, "../data/processed/ct_acs.geojson", driver='GeoJSON', delete_ds
 ```
 
 ### Pull Council District Demographics via councilcount
-```{r}
+```{r cd-data}
 # Total Pop: DP02_0088E | Under 18: DP05_0019E | Over 65: DP05_0024E 
 # NH White: DP05_0079E | SNAP: DP03_0074E
 cd_vars <- c("DP02_0088E", "DP05_0019E", "DP05_0024E", "DP05_0079E", "DP03_0074E")
 
-# The function will automatically generate the 'PE' (percentage) columns for us, per councilcount documentation
+# get_geo_estimates() automatically generates the 'PE' (percentage) columns for us
 cd_acs <- get_geo_estimates(acs_year = "2022", geo = "councildist", 
                             var_codes = cd_vars, boundary_year = "2023") %>%
   rename(
@@ -68,7 +68,7 @@ st_write(cd_acs, "../data/processed/cd_acs.geojson", driver='GeoJSON', delete_ds
 
 ### Import and Clean Park Maintenance Data 
 ```{r park-maintenance}
-# Updated to 2024 version instead of 2021
+# Updated to 2024 version instead of 2021 that Nick was using
 dl <- read_xlsx("../data/raw/AC18-144-Report-DataForWebsite-20241127__67dc7cb4493c8.xlsx") %>%
   clean_names()
 
