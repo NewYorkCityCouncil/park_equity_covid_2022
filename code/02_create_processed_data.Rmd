@@ -169,24 +169,24 @@ write.csv(pm, "../data/processed/park_maintenance.csv", row.names = FALSE)
 
 ### Pull Council District Demographics via councilcount
 ```{r}
-# Total Pop: DP02_0088E | Under 18: DP05_0019E | Over 65: DP05_0024E 
-# NH White: DP05_0079E | SNAP: DP03_0074E
-cd_vars <- c("DP02_0088E", "DP05_0019E", "DP05_0024E", "DP05_0079E", "DP03_0074E")
-
-# get_geo_estimates() automatically generates the 'PE' (percentage) columns for us
-cd_acs <- get_geo_estimates(acs_year = "2022", geo = "councildist", 
-                            var_codes = cd_vars, boundary_year = "2023") %>%
-  rename(
-    TotalPop = DP02_0088E,
-    Pop_Under18 = DP05_0019E,
-    Perc_Under18 = DP05_0019PE,
-    Pop_Over65 = DP05_0024E,
-    Perc_Over65 = DP05_0024PE,
-    Perc_NHWhite = DP05_0079PE,
-    Perc_SNAP = DP03_0074PE
-  )
-
-st_write(cd_acs, "../data/processed/cd_acs.geojson", driver='GeoJSON', delete_dsn=TRUE)
+# # Total Pop: DP02_0088E | Under 18: DP05_0019E | Over 65: DP05_0024E 
+# # NH White: DP05_0079E | SNAP: DP03_0074E
+# cd_vars <- c("DP02_0088E", "DP05_0019E", "DP05_0024E", "DP05_0079E", "DP03_0074E")
+# 
+# # get_geo_estimates() automatically generates the 'PE' (percentage) columns for us
+# cd_acs <- get_geo_estimates(acs_year = "2022", geo = "councildist", 
+#                             var_codes = cd_vars, boundary_year = "2023") %>%
+#   rename(
+#     TotalPop = DP02_0088E,
+#     Pop_Under18 = DP05_0019E,
+#     Perc_Under18 = DP05_0019PE,
+#     Pop_Over65 = DP05_0024E,
+#     Perc_Over65 = DP05_0024PE,
+#     Perc_NHWhite = DP05_0079PE,
+#     Perc_SNAP = DP03_0074PE
+#   )
+# 
+# st_write(cd_acs, "../data/processed/cd_acs.geojson", driver='GeoJSON', delete_dsn=TRUE)
 ```
 
 
