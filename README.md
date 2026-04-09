@@ -9,7 +9,7 @@ An associated webpage for this analysis can be found [on the council website](ht
 - [Walk-to-a-Park Service Area](https://data.cityofnewyork.us/Recreation/Walk-to-a-Park-Service-area/5vb5-y6cv)
 - [Updated 2024 Parks Maintenance Report](https://www.nycgovparks.org/pagefiles/204/Admin-Code-18-144-FY24Report-vf__67d83e05078a0.pdf)
 - [Updated 2020 Census Tracts](https://data.cityofnewyork.us/City-Government/2020-Census-Tracts/63ge-mke6/about_data)
-- 2022 5-Year ACS Survey: We used R package censusapi to get demographic data needed at the Census Tract level, and the councilcount package for data at the Council District level.
+- 2023 5-Year ACS Survey: We used R package censusapi to get demographic data needed at the Census Tract level, and the councilcount package for data at the Council District level.
 
 ### Methodology 
 
@@ -30,7 +30,7 @@ If a census tract is designated as having access to a park, then it is assigned 
 #### Council District Aggregation
 To analyze spatial equity at a legislative level, we aggregate the Census Tract data up to the 2023 City Council District (CD) level. Because Census Tracts do not nest cleanly into Council Districts, we perform a spatial join assigning each Census Tract centroid to a Council District.
 
-To find the average park access experience for the whole district without artificially penalizing highly populated CDs, we calculate the population-weighted average of the local CT-level access rates. Mathematically, this simplifies to summing all accessible acres across a CD's constituent tracts and dividing by the sum of those tracts' populations: Sum(Accessible Acres) / Sum(CT Population). We also apply a population-weighted average to estimate CD-level Median Household Income. Additional demographic estimates for the CDs (such as Under 18 population, Over 65 population, and SNAP households) are sourced directly from the 2022 5-Year ACS using the councilcount package.
+To find the average park access experience for the whole district without artificially penalizing highly populated CDs, we calculate the population-weighted average of the local CT-level access rates. Mathematically, this simplifies to summing all accessible acres across a CD's constituent tracts and dividing by the sum of those tracts' populations: Sum(Accessible Acres) / Sum(CT Population). We also apply a population-weighted average to estimate CD-level Median Household Income. Additional demographic estimates for the CDs (such as Under 18 population, Over 65 population, and SNAP households) are sourced directly from the 2023 5-Year ACS using the councilcount package.
 
 ### Scripts
 
@@ -38,7 +38,7 @@ To find the average park access experience for the whole district without artifi
 Loads necessary libraries and functions for use in the other scripts. 
 
 #### 02_create_processed_data.Rmd
-Creates the data found in the data/processed directory. Imports 2020 Census Tract shapefiles, pulls 2022 ACS data via the Census API (for CT-level population and median income), pulls 2022 ACS Council District demographic estimates via councilcount, and cleans the park maintenance data.
+Creates the data found in the data/processed directory. Imports 2020 Census Tract shapefiles, pulls 2023 ACS data via the Census API (for CT-level population and median income), pulls 2023 ACS Council District demographic estimates via councilcount, and cleans the park maintenance data.
 
 #### 03_park_cd_access.Rmd
 Determines which open space access points are within 10 minutes walking from each census tract, assigns capped acreage, and performs the spatial join and population-weighted roll-up to the 2023 Council District level. Also calculates subgroup-specific per-capita rates.
