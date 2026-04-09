@@ -23,10 +23,10 @@ ct_shp <- sf::read_sf(url_2020_ct) %>%
   # We append "1400000US" to match the ACS API GEO_ID format exactly
   mutate(GEO_ID = paste0("1400000US", geoid))
 
-# Pull 2022 ACS data at the CT Level (total pop & median income)
+# Pull 2023 ACS data at the CT Level (total pop & median income)
 ct_pop_inc <- getCensus(
   name = "acs/acs5/subject",
-  vintage = 2022, # 2022 ACS to match councilcount vintage
+  vintage = 2023, # 2023 ACS to match councilcount vintage
   vars = c("NAME", "GEO_ID", "S0101_C01_001E", "S1901_C01_012E"), 
   region = "tract:*", 
   regionin = "state:36+county:005,047,081,085,061") %>%
@@ -48,20 +48,42 @@ st_write(ct_acs, "../data/processed/ct_acs.geojson", driver='GeoJSON', delete_ds
 ```{r cd-data}
 # Total Pop: DP02_0088E | Under 18: DP05_0019E | Over 65: DP05_0024E 
 # NH White: DP05_0079E | SNAP: DP03_0074E
-cd_vars <- c("DP02_0088E", "DP05_0019E", "DP05_0024E", "DP05_0079E", "DP03_0074E")
+cd_vars <- c("DP02_0088E", "DP05_0019E", "DP05_0024E", "DP05_0082E", "DP03_0074E")
 
-# get_geo_estimates() automatically generates the 'PE' (percentage) columns for us
-cd_acs <- get_geo_estimates(acs_year = "2022", geo = "councildist", 
-                            var_codes = cd_vars, boundary_year = "2023") %>%
+# Use the Python package to get the 2023 data (returns a standard dataframe)
+cd_acs_data <- cc$get_councilcount_estimates(
+  acs_year = 2023L, 
+  geo = "councildist", 
+  var_codes = cd_vars, 
+  boundary_year = 2023L
+)
+
+# Clean up the Python dataframe column names
+cd_acs_data <- cd_acs_data %>%
   rename(
     TotalPop = DP02_0088E,
     Pop_Under18 = DP05_0019E,
     Perc_Under18 = DP05_0019PE,
     Pop_Over65 = DP05_0024E,
     Perc_Over65 = DP05_0024PE,
-    Perc_NHWhite = DP05_0079PE,
+    Perc_NHWhite = DP05_0082PE,
     Perc_SNAP = DP03_0074PE
-  )
+  ) %>%
+  mutate(councildist = as.character(councildist_2023)) # Ensure matching type for join
+
+# Use the R package to get the 2023 shapes 
+cd_shapes <- councilcount::get_geo_estimates(
+  acs_year = "2022", 
+  geo = "councildist", 
+  var_codes = c("DP02_0088E"), # Just pulling a dummy variable to get the shapes
+  boundary_year = "2023"
+) %>% 
+  select(councildist) %>% # Keep ONLY the geometry and the ID
+  mutate(councildist = as.character(councildist))
+
+# Join the 2023 Python Data onto the R Map
+cd_acs <- cd_shapes %>%
+  left_join(cd_acs_data, by = "councildist")
 
 st_write(cd_acs, "../data/processed/cd_acs.geojson", driver='GeoJSON', delete_dsn=TRUE)
 ```
@@ -143,6 +165,29 @@ write.csv(pm, "../data/processed/park_maintenance.csv", row.names = FALSE)
 
 
 
+# --- Old Code for 2022 ACS (only uncomment and run if you want 2022 ACS estimates instead of 2023, to avoid using Python councilcount) ---
+
+### Pull Council District Demographics via councilcount
+```{r}
+# Total Pop: DP02_0088E | Under 18: DP05_0019E | Over 65: DP05_0024E 
+# NH White: DP05_0079E | SNAP: DP03_0074E
+cd_vars <- c("DP02_0088E", "DP05_0019E", "DP05_0024E", "DP05_0079E", "DP03_0074E")
+
+# get_geo_estimates() automatically generates the 'PE' (percentage) columns for us
+cd_acs <- get_geo_estimates(acs_year = "2022", geo = "councildist", 
+                            var_codes = cd_vars, boundary_year = "2023") %>%
+  rename(
+    TotalPop = DP02_0088E,
+    Pop_Under18 = DP05_0019E,
+    Perc_Under18 = DP05_0019PE,
+    Pop_Over65 = DP05_0024E,
+    Perc_Over65 = DP05_0024PE,
+    Perc_NHWhite = DP05_0079PE,
+    Perc_SNAP = DP03_0074PE
+  )
+
+st_write(cd_acs, "../data/processed/cd_acs.geojson", driver='GeoJSON', delete_dsn=TRUE)
+```
 
 
 
