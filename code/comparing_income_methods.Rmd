@@ -1,0 +1,109 @@
+---
+title: "comparing_income_methods"
+output: html_document
+---
+
+```{r}
+# Load required libraries
+library(tidyverse)
+library(readxl)
+library(scales)
+library(showtext)
+
+# Ensure fonts are loaded
+font_add_google("Open Sans", "Open Sans")
+font_add_google("PT Serif", "Georgia") 
+showtext_auto()
+
+# 1. Load and sort the data
+income_comp <- read_xlsx("../data/processed/median_income_comparison.xlsx") %>%
+  rename(Original = original) %>%
+  arrange(Original) %>%
+  mutate(
+    # Create a rank from 1 (poorest) to 51 (wealthiest)
+    Rank = row_number(),
+    
+    # Split the 51 districts into 5 distinct groups
+    Income_Tier = case_when(
+      Rank <= 10 ~ "Tier 1: Lowest Income (Ranks 1-10)",
+      Rank <= 20 ~ "Tier 2: Lower-Middle Income (Ranks 11-20)",
+      Rank <= 30 ~ "Tier 3: Middle Income (Ranks 21-30)",
+      Rank <= 40 ~ "Tier 4: Upper-Middle Income (Ranks 31-40)",
+      Rank >  40 ~ "Tier 5: Highest Income (Ranks 41-51)"
+    ),
+    
+    # Lock the CD factor levels in this sorted order
+    councildist = factor(councildist, levels = councildist)
+  )
+
+# Pivot the data for plotting
+income_long <- income_comp %>%
+  pivot_longer(
+    cols = c(Original, PUMS, NYHC),
+    names_to = "Method",
+    values_to = "Income"
+  ) %>%
+  mutate(Method = factor(Method, levels = c("Original", "NYHC", "PUMS"),
+                         labels = c("Our Method (CT Population-Weighted)", 
+                                    "NYHC (Areal Overlap)", 
+                                    "PUMS (Synthetic Downscaling)")))
+
+# 2. Create a loop to generate and save 5 separate plots
+tiers <- unique(income_long$Income_Tier)
+
+for (i in seq_along(tiers)) {
+  
+  tier_name <- tiers[i]
+  plot_data <- income_long %>% filter(Income_Tier == tier_name)
+  
+  p <- ggplot(plot_data, aes(x = Income, y = councildist)) +
+    
+    # Draw the horizontal line connecting the estimates
+    geom_line(aes(group = councildist), color = "gray75", linewidth = 1.2) +
+    
+    # Plot the dots
+    geom_point(aes(color = Method), size = 4.5, alpha = 0.9) +
+    
+    # Custom colors
+    scale_color_manual(values = c(
+      "Our Method (CT Population-Weighted)" = "#2f56a6", # Blue
+      "NYHC (Areal Overlap)" = "#4f9560",                # Green
+      "PUMS (Synthetic Downscaling)" = "#e91e63"         # Pink
+    )) +
+    
+    # FIXING THE X-AXIS: 
+    # By setting the limits from 30k to 180k for ALL plots, the scale remains 
+    # perfectly consistent as you scroll through the 5 tiers.
+    scale_x_continuous(
+      labels = scales::dollar_format(), 
+      limits = c(30000, 180000), 
+      breaks = seq(30000, 180000, by = 25000)
+    ) +
+    
+    labs(
+      title = "Comparing Income Aggregation Methods",
+      subtitle = tier_name,
+      x = "Estimated Median Household Income",
+      y = "Council District"
+    ) +
+    
+    # Clean Theme
+    theme_minimal() +
+    theme(
+      text = element_text(family = "Open Sans"),
+      plot.title = element_text(family = "Georgia", size = 16, face = "bold"),
+      plot.subtitle = element_text(family = "Georgia", size = 13, margin = margin(b = 10), color = "#8744BC", face = "bold"),
+      legend.position = "top",
+      legend.title = element_blank(),
+      legend.text = element_text(size = 10),
+      panel.grid.major.y = element_blank(), 
+      panel.grid.minor.x = element_blank(),
+      axis.text.y = element_text(size = 11, color = "black", face = "bold"),
+      axis.title = element_text(size = 12, face = "bold")
+    )
+  
+  # Print plot to the RStudio Viewer
+  print(p)
+}
+```
+
