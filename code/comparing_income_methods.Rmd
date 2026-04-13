@@ -4,40 +4,25 @@ output: html_document
 ---
 
 ```{r}
-# Load required libraries
+# Libraries
 library(tidyverse)
 library(readxl)
 library(scales)
 library(showtext)
-
-# Ensure fonts are loaded
 font_add_google("Open Sans", "Open Sans")
 font_add_google("PT Serif", "Georgia") 
 showtext_auto()
 
-# 1. Load and sort the data
+# 1. Load the data
 income_comp <- read_xlsx("../data/processed/median_income_comparison.xlsx") %>%
-  rename(Original = original) %>%
-  arrange(Original) %>%
-  mutate(
-    # Create a rank from 1 (poorest) to 51 (wealthiest)
-    Rank = row_number(),
-    
-    # Split the 51 districts into 5 distinct groups
-    Income_Tier = case_when(
-      Rank <= 10 ~ "Tier 1: Lowest Income (Ranks 1-10)",
-      Rank <= 20 ~ "Tier 2: Lower-Middle Income (Ranks 11-20)",
-      Rank <= 30 ~ "Tier 3: Middle Income (Ranks 21-30)",
-      Rank <= 40 ~ "Tier 4: Upper-Middle Income (Ranks 31-40)",
-      Rank >  40 ~ "Tier 5: Highest Income (Ranks 41-51)"
-    ),
-    
-    # Lock the CD factor levels in this sorted order
-    councildist = factor(councildist, levels = councildist)
-  )
+  rename(Original = original)
 
-# Pivot the data for plotting
-income_long <- income_comp %>%
+# 2. Prepare the data for plotting
+income_comp_sorted <- income_comp %>%
+  arrange(Original) %>%
+  mutate(councildist = factor(councildist, levels = councildist))
+
+income_long <- income_comp_sorted %>%
   pivot_longer(
     cols = c(Original, PUMS, NYHC),
     names_to = "Method",
@@ -48,62 +33,131 @@ income_long <- income_comp %>%
                                     "NYHC (Areal Overlap)", 
                                     "PUMS (Synthetic Downscaling)")))
 
-# 2. Create a loop to generate and save 5 separate plots
-tiers <- unique(income_long$Income_Tier)
-
-for (i in seq_along(tiers)) {
-  
-  tier_name <- tiers[i]
-  plot_data <- income_long %>% filter(Income_Tier == tier_name)
-  
-  p <- ggplot(plot_data, aes(x = Income, y = councildist)) +
-    
-    # Draw the horizontal line connecting the estimates
-    geom_line(aes(group = councildist), color = "gray75", linewidth = 1.2) +
-    
-    # Plot the dots
-    geom_point(aes(color = Method), size = 4.5, alpha = 0.9) +
-    
-    # Custom colors
+# 3. Build the Dumbbell Plot
+comparison_plot <- ggplot(income_long, aes(x = Income, y = councildist)) +
+  geom_line(aes(group = councildist), color = "gray75", linewidth = 1) +
+  geom_point(aes(color = Method), size = 3.5, alpha = 0.9) +
     scale_color_manual(values = c(
-      "Our Method (CT Population-Weighted)" = "#2f56a6", # Blue
-      "NYHC (Areal Overlap)" = "#4f9560",                # Green
-      "PUMS (Synthetic Downscaling)" = "#e91e63"         # Pink
-    )) +
-    
-    # FIXING THE X-AXIS: 
-    # By setting the limits from 30k to 180k for ALL plots, the scale remains 
-    # perfectly consistent as you scroll through the 5 tiers.
-    scale_x_continuous(
-      labels = scales::dollar_format(), 
-      limits = c(30000, 180000), 
-      breaks = seq(30000, 180000, by = 25000)
-    ) +
-    
-    labs(
-      title = "Comparing Income Aggregation Methods",
-      subtitle = tier_name,
-      x = "Estimated Median Household Income",
-      y = "Council District"
-    ) +
-    
-    # Clean Theme
-    theme_minimal() +
-    theme(
-      text = element_text(family = "Open Sans"),
-      plot.title = element_text(family = "Georgia", size = 16, face = "bold"),
-      plot.subtitle = element_text(family = "Georgia", size = 13, margin = margin(b = 10), color = "#8744BC", face = "bold"),
-      legend.position = "top",
-      legend.title = element_blank(),
-      legend.text = element_text(size = 10),
-      panel.grid.major.y = element_blank(), 
-      panel.grid.minor.x = element_blank(),
-      axis.text.y = element_text(size = 11, color = "black", face = "bold"),
-      axis.title = element_text(size = 12, face = "bold")
-    )
+    "Our Method (CT Population-Weighted)" = "#2f56a6", # Blue
+    "NYHC (Areal Overlap)" = "#4f9560",                # Green
+    "PUMS (Synthetic Downscaling)" = "#e91e63"         # Pink
+  )) +
   
-  # Print plot to the RStudio Viewer
-  print(p)
-}
+  scale_x_continuous(labels = scales::dollar_format(), breaks = seq(30000, 180000, by = 25000)) +
+  
+  labs(
+    title = "Comparing Income Aggregation Methods",
+    subtitle = "Sorted from lowest to highest income.",
+    x = "Estimated Median Household Income",
+    y = "Council District (Ranked by Income Level)",
+    caption = "Source: ACS 5-Year Estimates. Original, PUMS, and NYHC Methodologies."
+  ) +
+  
+  theme_minimal() +
+  theme(
+    text = element_text(family = "Open Sans"),
+    plot.title = element_text(family = "Georgia", size = 16, face = "bold"),
+    plot.subtitle = element_text(family = "Georgia", size = 11, margin = margin(b = 15), color = "gray30"),
+    legend.position = "top",
+    legend.title = element_blank(),
+    legend.text = element_text(size = 10),
+    panel.grid.major.y = element_blank(), # Remove horizontal grid lines to make the dumbbell lines pop
+    panel.grid.minor.x = element_blank(),
+    axis.text.y = element_text(size = 8, color = "gray20"),
+    axis.title = element_text(size = 11, face = "bold")
+  )
+
+# 4. Display and Save
+print(comparison_plot)
+
+ggsave(comparison_plot, filename = "../figures2/median_income_methodology_comparison.png", 
+       units = "in", width = 10, height = 12, dpi = 300)
 ```
+
+```{r}
+# 1. Load data and divide into 3 Income Tiers
+income_comp <- read_xlsx("../data/processed/median_income_comparison.xlsx") %>%
+  rename(Original = original) %>%
+  # Rank based on our method
+  mutate(Rank = rank(Original, ties.method = "first")) %>%
+  mutate(
+    Tier = case_when(
+      Rank <= 17 ~ "Low Income Districts\n(Bottom Third)",
+      Rank <= 34 ~ "Mid Income Districts\n(Middle Third)",
+      TRUE       ~ "High Income Districts\n(Top Third)"
+    ),
+    # Lock the order of the tiers for the plot
+    Tier = factor(Tier, levels = c("Low Income Districts\n(Bottom Third)", 
+                                   "Mid Income Districts\n(Middle Third)", 
+                                   "High Income Districts\n(Top Third)"))
+  )
+
+# 2. Calculate the average estimate for each method within each tier
+tier_summary <- income_comp %>%
+  pivot_longer(
+    cols = c(Original, PUMS, NYHC),
+    names_to = "Method",
+    values_to = "Income"
+  ) %>%
+  group_by(Tier, Method) %>%
+  summarize(Avg_Income = mean(Income, na.rm = TRUE), .groups = "drop") %>%
+  mutate(Method = factor(Method, levels = c("Original", "NYHC", "PUMS"),
+                         labels = c("Our Method (CT Pop-Weighted)", 
+                                    "NYHC (Areal Overlap)", 
+                                    "PUMS (Synthetic Downscaling)")))
+
+# 3. Build the Grouped Bar Chart
+summary_plot <- ggplot(tier_summary, aes(x = Tier, y = Avg_Income, fill = Method)) +
+    geom_col(position = position_dodge(width = 0.8), width = 0.7, alpha = 0.9) +
+    geom_text(aes(label = scales::dollar(round(Avg_Income, 0))), 
+            position = position_dodge(width = 0.8), 
+            vjust = -0.5, family = "Open Sans", size = 3.5, fontface = "bold", color = "gray20") +
+    scale_fill_manual(values = c(
+    "Our Method (CT Pop-Weighted)" = "#2f56a6", # Blue
+    "NYHC (Areal Overlap)" = "#4f9560",         # Green
+    "PUMS (Synthetic Downscaling)" = "#e91e63"  # Pink
+  )) +
+    scale_y_continuous(labels = scales::dollar_format(), 
+                     expand = expansion(mult = c(0, 0.15))) + # Give breathing room at the top for labels
+  labs(
+    title = "Methodology Comparison by District Wealth",
+    subtitle = "Average estimated median income across the three methods, grouped by district income tiers.",
+    x = NULL,
+    y = "Average Estimated Median Income",
+    caption = "Source: ACS 5-Year Estimates. Original, PUMS, and NYHC Methodologies."
+  ) +
+  theme_minimal() +
+  theme(
+    text = element_text(family = "Open Sans"),
+    plot.title = element_text(family = "Georgia", size = 16, face = "bold"),
+    plot.subtitle = element_text(family = "Georgia", size = 11, margin = margin(b = 15), color = "gray30"),
+    legend.position = "top",
+    legend.title = element_blank(),
+    legend.text = element_text(size = 11),
+    panel.grid.major.x = element_blank(), # Remove vertical grid lines
+    panel.grid.minor.y = element_blank(),
+    axis.text.x = element_text(size = 12, face = "bold", color = "black"),
+    axis.text.y = element_text(size = 10, color = "gray30"),
+    axis.title.y = element_text(size = 11, face = "bold", margin = margin(r = 10))
+  )
+
+# 4. Display and Save
+print(summary_plot)
+
+ggsave(summary_plot, filename = "../figures2/income_summary_by_tier.png", 
+       units = "in", width = 9, height = 6, dpi = 300)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
 
