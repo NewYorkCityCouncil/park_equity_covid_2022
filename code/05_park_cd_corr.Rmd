@@ -135,3 +135,127 @@ saveWidget(interactive_plot_snap, file = "../figures2/cd_acreage_snap_scatter.ht
 ```
 
 
+### Scatterplots with ACTUAL Acreage (Log Scale)
+```{r helper-theme-actual}
+# Helper function for interactive scatter plots using actual acreage
+generate_interactive_scatter_actual <- function(data, y_var, y_label, point_color, y_format_func, title_suffix) {
+
+  y_var_enquo <- enquo(y_var)
+  
+  plot_data <- data %>%
+    mutate(
+      facre_100k = facre_pc * 100000, # Actual acreage
+      tooltip_text = sprintf(
+        "<b>Council District: %s</b><br>Park Access: %s acres per 100k<br>%s: %s",
+        councildist,
+        scales::comma(round(facre_100k, 1)),
+        y_label,
+        y_format_func(!!y_var_enquo)
+      )
+    )
+  
+  # Calculate correlation stats (using log-transformed x to match the visual scale)
+  test <- cor.test(log10(plot_data$facre_100k), plot_data %>% pull(!!y_var_enquo), use = "complete.obs")
+  r_val <- round(test$estimate, 2)
+  p_val <- test$p.value
+  p_str <- ifelse(p_val < 0.001, "< 0.001", sprintf("%.3f", p_val))
+  stats_label <- paste0("r = ", r_val, "\np = ", p_str)
+  
+  p <- ggplot(plot_data, aes(x = facre_100k, y = !!y_var_enquo)) + 
+    geom_smooth(method = "lm", formula = y ~ x, se = FALSE, color = "gray50", linetype = "dashed") +
+    geom_point_interactive(aes(tooltip = tooltip_text, data_id = councildist), color = point_color, size = 2.5) +
+    annotate("text", x = min(plot_data$facre_100k, na.rm=TRUE), y = Inf, label = stats_label, 
+             hjust = 0, vjust = 1.3, family = "Open Sans", fontface = "bold", size = 4) +
+    scale_x_log10(labels = scales::comma, breaks = c(100, 300, 1000, 3000)) + 
+    scale_y_continuous(labels = y_format_func, expand = expansion(mult = c(0.05, 0.2))) +
+    labs(
+      title = paste("Park Acreage vs.", title_suffix),
+      x = "Actual Park Acreage per 100k Residents (Log Scale)",
+      y = y_label,
+      caption = "Source: Councilcount (ACS); NYC Parks: Walk-to-a-Park"
+    ) +
+    theme(
+      text = element_text(family = "Open Sans"),
+      panel.grid.major = element_line(color = "#f0f0f0"), panel.background = element_blank(),
+      axis.line = element_line(colour = "black"), panel.grid.minor = element_blank(),
+      plot.title = element_text(family = "Georgia", size = 16),
+      plot.subtitle = element_text(family = "Georgia", size = 12, margin = margin(b=10)),
+      axis.title.y = element_text(size = 11, margin = margin(r = 10)),
+      axis.title.x = element_text(size = 11, margin = margin(t = 10))
+    )
+    
+  return(p)
+}
+```
+
+```{r correlations-actual}
+# Plot and Save 
+interactive_opts <- list(
+  opts_hover(css = "fill:#FFC300;stroke:black;stroke-width:1px;")
+)
+
+# --- Plot A2: ACTUAL Park Access vs NH White ---
+plot_nhw_actual <- generate_interactive_scatter_actual(cd_final, Perc_NHWhite, "Non-Hispanic White (%)", "#846126", function(y) scales::percent(y, scale=1), "Race")
+interactive_plot_nhw_actual <- girafe(ggobj = plot_nhw_actual, width_svg = 10, height_svg = 6, options = interactive_opts)
+print(interactive_plot_nhw_actual)
+saveWidget(interactive_plot_nhw_actual, file = "../figures2/cd_acreage_actual_race_scatter.html")
+
+# --- Plot B2: ACTUAL Park Access vs Median Income ---
+plot_inc_actual <- generate_interactive_scatter_actual(cd_final, MedInc, "Median Household Income", "#2f56a6", scales::dollar, "Median Income")
+interactive_plot_inc_actual <- girafe(ggobj = plot_inc_actual, width_svg = 10, height_svg = 6, options = interactive_opts)
+print(interactive_plot_inc_actual)
+saveWidget(interactive_plot_inc_actual, file = "../figures2/cd_acreage_actual_income_scatter.html")
+
+# --- Plot C2: ACTUAL Park Access vs % Under 18 ---
+plot_u18_actual <- generate_interactive_scatter_actual(cd_final, Perc_Under18, "Population Under 18 (%)", "#e91e63", function(y) scales::percent(y, scale=1), "Under 18 Population")
+interactive_plot_u18_actual <- girafe(ggobj = plot_u18_actual, width_svg = 10, height_svg = 6, options = interactive_opts)
+print(interactive_plot_u18_actual)
+saveWidget(interactive_plot_u18_actual, file = "../figures2/cd_acreage_actual_under18_scatter.html")
+
+# --- Plot D2: ACTUAL Park Access vs % Over 65 ---
+plot_o65_actual <- generate_interactive_scatter_actual(cd_final, Perc_Over65, "Population Over 65 (%)", "#f57c00", function(y) scales::percent(y, scale=1), "Over 65 Population")
+interactive_plot_o65_actual <- girafe(ggobj = plot_o65_actual, width_svg = 10, height_svg = 6, options = interactive_opts)
+print(interactive_plot_o65_actual)
+saveWidget(interactive_plot_o65_actual, file = "../figures2/cd_acreage_actual_over65_scatter.html")
+
+# --- Plot E2: ACTUAL Park Access vs % SNAP ---
+plot_snap_actual <- generate_interactive_scatter_actual(cd_final, Perc_SNAP, "Households receiving SNAP (%)", "#039be5", function(y) scales::percent(y, scale=1), "Public Assistance")
+interactive_plot_snap_actual <- girafe(ggobj = plot_snap_actual, width_svg = 10, height_svg = 6, options = interactive_opts)
+print(interactive_plot_snap_actual)
+saveWidget(interactive_plot_snap_actual, file = "../figures2/cd_acreage_actual_snap_scatter.html")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
