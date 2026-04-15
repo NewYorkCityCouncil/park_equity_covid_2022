@@ -1,0 +1,716 @@
+---
+format: html
+title: "Park Equity in NYC"
+subtitle: "Analyzing Spatial Access to Park Acreage by Council District — NYCC Data Team"
+title-block-banner: "images/prospect_park_2.jpg"
+---
+
+```{r setup, include=FALSE}
+
+# LOAD LIBRARIES
+library(tidyverse)
+library(sf)
+library(leaflet)
+library(leaflet.extras)
+library(ggplot2)
+library(ggiraph)
+library(classInt)
+library(htmltools)
+library(showtext)
+library(here)
+
+# FONT CONFIG
+font_add_google("Inter", "Inter")
+font_add_google("DM Serif Display", "DM Serif Display")
+showtext_auto()
+
+# LOAD DATA
+cd_final <- st_read(here::here("data", "processed", "cd_final_equity.geojson")) %>%
+  filter(TotalPop > 0) %>%
+  st_transform("+proj=longlat +datum=WGS84")
+
+# PREPARE POP-UPS
+labels_cd <- paste(
+  "<div style='font-family: Inter, -apple-system, sans-serif; min-width: 240px; font-size: 13px; color: #1a1a2e; padding: 4px;'>",
+    "<h3 style='margin: 0 0 10px 0; padding-bottom: 8px; border-bottom: 2px solid #007534; color: #1a1a2e; font-size: 15px;'>",
+      "Council District ", cd_final$councildist,
+    "</h3>",
+    "<h4 style='margin: 12px 0 6px 0; color: #7a7a8e; text-transform: uppercase; font-size: 10px; letter-spacing: 1px; font-weight: 600;'>Demographics</h4>",
+    "<div style='margin-left: 4px; line-height: 1.7;'>",
+      "<b>Total Population:</b> ", scales::comma(cd_final$TotalPop), "<br>",
+      "<b>Median Income:</b> ", scales::dollar(cd_final$MedInc), "<br>",
+      "<b>Non-Hispanic White:</b> ", round(cd_final$Perc_NHWhite, 1), "%",
+    "</div>",
+    "<h4 style='margin: 12px 0 6px 0; color: #7a7a8e; text-transform: uppercase; font-size: 10px; letter-spacing: 1px; font-weight: 600;'>Vulnerable Groups</h4>",
+    "<div style='margin-left: 4px; line-height: 1.7;'>",
+      "<b>Under 18:</b> ", scales::comma(cd_final$Pop_Under18), " (", round(cd_final$Perc_Under18, 1), "%)<br>",
+      "<b>Over 65:</b> ", scales::comma(cd_final$Pop_Over65), " (", round(cd_final$Perc_Over65, 1), "%)<br>",
+      "<b>SNAP Households:</b> ", round(cd_final$Perc_SNAP, 1), "%",
+    "</div>",
+    "<h4 style='margin: 12px 0 6px 0; color: #7a7a8e; text-transform: uppercase; font-size: 10px; letter-spacing: 1px; font-weight: 600;'>Park Access <small>(Acres per 100k)</small></h4>",
+    "<div style='margin-left: 4px; line-height: 1.7;'>",
+      "<b>Overall:</b> ", scales::comma(round(cd_final$facre_pc * 100000, 1)), "<br>",
+      "<b>Under 18:</b> ", scales::comma(round(cd_final$facre_pc_under18 * 100000, 1)), "<br>",
+      "<b>Over 65:</b> ", scales::comma(round(cd_final$facre_pc_over65 * 100000, 1)),
+    "</div>",
+  "</div>"
+)
+
+recode <- cd_final %>% mutate(bottom25 = ifelse(facre_pc * 100000 < quantile(facre_pc * 100000, 0.25, na.rm=T), 1, 0))
+rr <- HTML('<small style="font-family: Inter, sans-serif; color: #7a7a8e;"> Source: Councilcount (ACS), NYC Parks </small>')
+park_access_legend <- HTML('<div style="color: #6C3FA0; font-family: Inter, sans-serif; font-size: 12px;"> <strong>Bottom 25%</strong> <br> Park Access</div>')
+
+# MAP GENERATOR FUNCTION
+generate_map <- function(data, variable, palette_colors, title, label_format, color_outline = "#6C3FA0", round_digits = 0) {
+  dynamic_breaks <- classInt::classIntervals(variable[!is.na(variable)], n = length(palette_colors), style = "jenks")$brks
+  dynamic_breaks <- round(dynamic_breaks, round_digits)
+  if (round_digits == 0) {
+    dynamic_breaks[1] <- floor(min(variable, na.rm = TRUE))
+    dynamic_breaks[length(dynamic_breaks)] <- ceiling(max(variable, na.rm = TRUE))
+  } else {
+    dynamic_breaks[1] <- floor(min(variable, na.rm = TRUE) * 10) / 10
+    dynamic_breaks[length(dynamic_breaks)] <- ceiling(max(variable, na.rm = TRUE) * 10) / 10
+  }
+  dynamic_breaks <- unique(dynamic_breaks)
+  pal <- colorBin(palette = palette_colors, domain = variable, bins = dynamic_breaks, na.color = "#CACACA")
+  
+  leaflet(options = leafletOptions(zoomControl = FALSE)) %>%
+    setView(-73.984865, 40.710542, 10.5) %>%
+    setMapWidgetStyle(list(background= "white")) %>%
+    addMapPane("basePane", zIndex = 410) %>%
+    addMapPane("outlinePane", zIndex = 420) %>%
+    addPolygons(data = data, weight = 1, opacity = 0.5, color = ~pal(variable), fillColor = ~pal(variable), fillOpacity = 0.8, popup = lapply(labels_cd, HTML), highlightOptions = highlightOptions(weight = 3, color = "#FFFFFF", fillOpacity = 1, bringToFront = TRUE), options = pathOptions(pane = "basePane")) %>%
+    addPolygons(data = recode, weight = 2, fill=F, opacity = 1, color = color_outline, stroke = recode$bottom25, options = pathOptions(pane = "outlinePane", interactive = FALSE)) %>%
+    addLegend(position ="topleft", pal = pal, opacity = 0.9, values = variable, title = title, labFormat = label_format) %>%
+    addControl(rr, position = "bottomright") %>%
+    addControl(park_access_legend, position = "topleft")
+}
+
+# SCATTERPLOT GENERATOR FUNCTION (Actual Acreage with Log Scale)
+generate_interactive_scatter <- function(data, y_var, y_label, point_color, y_format_func, title_suffix) {
+  y_var_enquo <- enquo(y_var)
+  
+  plot_data <- data %>%
+    mutate(
+      facre_100k = facre_pc * 100000,
+      tooltip_text = sprintf(
+        "<b>Council District: %s</b><br>Park Access: %s acres per 100k<br>%s: %s",
+        councildist, scales::comma(round(facre_100k, 1)), y_label, y_format_func(!!y_var_enquo)
+      )
+    )
+  
+  test <- cor.test(log10(plot_data$facre_100k), plot_data %>% pull(!!y_var_enquo), use = "complete.obs")
+  r_val <- round(test$estimate, 2)
+  p_val <- test$p.value
+  p_str <- ifelse(p_val < 0.001, "< 0.001", sprintf("%.3f", p_val))
+  stats_label <- paste0("r = ", r_val, "\np = ", p_str)
+  
+  p <- ggplot(plot_data, aes(x = facre_100k, y = !!y_var_enquo)) +
+    geom_smooth(method = "lm", formula = y ~ x, se = FALSE, color = "gray60", linetype = "dashed", linewidth = 0.7) +
+    geom_point_interactive(aes(tooltip = tooltip_text, data_id = councildist), color = point_color, size = 3.5, alpha = 0.85) +
+    annotate("text", x = min(plot_data$facre_100k, na.rm=T), y = Inf, label = stats_label, hjust = 0, vjust = 1.3, family = "Inter", fontface = "bold", size = 3.8, color = "#4a4a68") +
+    scale_x_log10(labels = scales::comma, breaks = c(100, 300, 1000, 3000)) +
+    scale_y_continuous(labels = y_format_func, expand = expansion(mult = c(0.05, 0.2))) +
+    labs(
+      title = paste("Park Acreage vs.", title_suffix),
+      x = "Actual Park Acreage per 100k Residents (Log Scale)",
+      y = y_label,
+      caption = "Source: Councilcount (ACS); NYC Parks"
+    ) +
+    theme_minimal(base_family = "Inter") +
+    theme(
+      panel.grid.major = element_line(color = "#f0f0f0", linewidth = 0.3),
+      panel.grid.minor = element_blank(),
+      panel.background = element_rect(fill = "white", color = NA),
+      plot.background = element_rect(fill = "white", color = NA),
+      plot.title = element_text(family = "DM Serif Display", size = 15, color = "#1a1a2e", margin = margin(b = 8)),
+      plot.caption = element_text(color = "#7a7a8e", size = 8, margin = margin(t = 12)),
+      axis.title.y = element_text(size = 10, color = "#4a4a68", margin = margin(r = 10)),
+      axis.title.x = element_text(size = 10, color = "#4a4a68", margin = margin(t = 10)),
+      axis.text = element_text(color = "#7a7a8e", size = 9),
+      axis.line = element_line(colour = "#e2e5ea", linewidth = 0.5)
+    )
+    
+  girafe(ggobj = p, width_svg = 9, height_svg = 6, options = list(opts_hover(css = "fill:#FFC300;stroke:#333;stroke-width:1.5px;r:5px;")))
+}
+```
+
+::::::: grid
+
+::: {.g-col-12 .g-col-lg-8}
+
+# Evaluating Park Equity Across New York City
+
+Recent releases by various advocacy groups have highlighted the inequities faced by the city's parks system. Public parks are vital infrastructure, offering recreational opportunities, health benefits, and environmental resilience to surrounding neighborhoods. However, access to high-quality park space is rarely distributed equally.
+
+Report by the Trust for Public Land found that parks in low-income and minority neighborhoods across the city are often smaller, making it more difficult to spread out and keep a distance from others.
+
+By measuring the population-weighted accessible acres within a 10-minute walk for residents in each of the City's 51 Council Districts, this analysis identifies which districts are adequately served by the city's green spaces and which face systemic deficits. In addition, we assess the relationship between accessible park acreage and various equity measures, including age, race/ethnicity, and income, at the Council District level. 
+
+<!-- EMBEDDED VIDEO SECTION -->
+```{=html}
+<div style="margin-top: 2.5rem; max-width: 90%;">
+  <h4 style="color: #1a1a2e; font-family: 'Inter', sans-serif; font-size: 1.15rem; font-weight: 700; margin-bottom: 0.85rem;">
+    Whose Park? Equity in NYC's Green Spaces <i class="fa-solid fa-video" style="color: #6C3FA0; margin-left: 6px;"></i>
+  </h4>
+  <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 8px; box-shadow: 0 4px 14px rgba(0,0,0,0.1);">
+    <iframe
+      width="560" height="315"
+      src="https://www.youtube.com/embed/VaUsx24j7jY?si=clkqIqfJXhmLRW84"
+      title="Whose Park? Equity in NYC's Green Spaces"
+      frameborder="0"
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+      referrerpolicy="strict-origin-when-cross-origin"
+      allowfullscreen
+      style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;">
+    </iframe>
+  </div>
+  <p style="font-size: 0.95rem; color: #7a7a8e; margin-top: 1rem; line-height: 1.6;">
+    <em>Tupper Thomas, former Executive Director of New Yorkers for Parks, moderates a candid discussion with former Ford Foundation President Darren Walker, former Brooklyn Bridge Park President Regina Myer, and former Brooklyn Deputy Borough President Diana Reyna about parks, equity, and the complicated mediation between users.</em>
+  </p>
+</div>
+```
+<!-- END EMBEDDED VIDEO SECTION -->
+
+:::
+
+::::: {.g-col-12 .g-col-lg-4}
+
+<!-- KEY FINDINGS — LARGE ICON CARDS -->
+```{=html}
+<div style="background: #f8f7f4; border: 1px solid #e2e0da; border-radius: 12px; padding: 1.75rem 1.5rem 1.25rem; margin-top: 1.5rem;">
+  <h3 style="font-family: 'DM Serif Display', serif; font-size: 1.5rem; color: #1a1a2e; margin: 0 0 1.25rem 0; padding: 0; border: none; text-align: center; letter-spacing: 0.02em;">Key Takeaways</h3>
+
+  <!-- Card 1 -->
+  <div class="takeaway-card" style="display: flex; gap: 1rem; align-items: flex-start; background: white; border-radius: 10px; padding: 1.25rem; margin-bottom: 0.85rem; border-left: 4px solid #007534; box-shadow: 0 1px 4px rgba(0,0,0,0.06);">
+    <div style="flex-shrink: 0; width: 44px; height: 44px; border-radius: 10px; background: #eaf5ef; display: flex; align-items: center; justify-content: center;">
+      <i class="fa-solid fa-tree" style="color: #007534; font-size: 1.2rem;"></i>
+    </div>
+    <div>
+      <div style="font-family: Inter, sans-serif; font-weight: 700; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; color: #1a1a2e; margin-bottom: 0.35rem;">Spatial Inequity</div>
+      <p style="font-family: Inter, sans-serif; font-size: 0.88rem; line-height: 1.55; color: #4a4a68; margin: 0;">Residents of districts in Northwestern Queens and Eastern Brooklyn — including <strong>Elmhurst</strong>, <strong>Jackson Heights</strong>, <strong>Bed-Stuy</strong>, <strong>Flatbush</strong>, and <strong>East New York</strong> — experience some of the lowest park access in the City.</p>
+    </div>
+  </div>
+
+  <!-- Card 2 -->
+  <div class="takeaway-card" style="display: flex; gap: 1rem; align-items: flex-start; background: white; border-radius: 10px; padding: 1.25rem; margin-bottom: 0.85rem; border-left: 4px solid #2f56a6; box-shadow: 0 1px 4px rgba(0,0,0,0.06);">
+    <div style="flex-shrink: 0; width: 44px; height: 44px; border-radius: 10px; background: #e8edf7; display: flex; align-items: center; justify-content: center;">
+      <i class="fa-solid fa-crutch" style="color: #2f56a6; font-size: 1.2rem;"></i>
+    </div>
+    <div>
+      <div style="font-family: Inter, sans-serif; font-weight: 700; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; color: #1a1a2e; margin-bottom: 0.35rem;">Vulnerable Populations</div>
+      <p style="font-family: Inter, sans-serif; font-size: 0.88rem; line-height: 1.55; color: #4a4a68; margin: 0;">While we found no significant correlation between park access and most equity measures, we uncovered a <strong>moderate positive association</strong> between a district's <strong>elderly population</strong> and its functional <strong>park acreage</strong>.</p>
+    </div>
+  </div>
+
+  <!-- Card 3 -->
+  <div class="takeaway-card" style="display: flex; gap: 1rem; align-items: flex-start; background: white; border-radius: 10px; padding: 1.25rem; margin-bottom: 0.85rem; border-left: 4px solid #6C3FA0; box-shadow: 0 1px 4px rgba(0,0,0,0.06);">
+    <div style="flex-shrink: 0; width: 44px; height: 44px; border-radius: 10px; background: #f0e8f7; display: flex; align-items: center; justify-content: center;">
+      <i class="fa-solid fa-users-rays" style="color: #6C3FA0; font-size: 1.2rem;"></i>
+    </div>
+    <div>
+      <div style="font-family: Inter, sans-serif; font-weight: 700; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; color: #1a1a2e; margin-bottom: 0.35rem;">Intersectional Marginalization</div>
+      <p style="font-family: Inter, sans-serif; font-size: 0.88rem; line-height: 1.55; color: #4a4a68; margin: 0;">All but one Council District with both <strong>low income</strong> and <strong>low park access</strong> are majority Non-White. For instance, CD 14 (<strong>University Heights & Fordham</strong>) is only 3% NH White and bottom-10 in park access.</p>
+    </div>
+  </div>
+
+  <!-- Card 4 -->
+  <div class="takeaway-card" style="display: flex; gap: 1rem; align-items: flex-start; background: white; border-radius: 10px; padding: 1.25rem; border-left: 4px solid #846126; box-shadow: 0 1px 4px rgba(0,0,0,0.06);">
+    <div style="flex-shrink: 0; width: 44px; height: 44px; border-radius: 10px; background: #f9ebea; display: flex; align-items: center; justify-content: center;">
+      <i class="fa-solid fa-bullhorn" style="color: #846126; font-size: 1.2rem;"></i>
+    </div>
+    <div>
+      <div style="font-family: Inter, sans-serif; font-weight: 700; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; color: #1a1a2e; margin-bottom: 0.35rem;">Call for Action</div>
+      <p style="font-family: Inter, sans-serif; font-size: 0.88rem; line-height: 1.55; color: #4a4a68; margin: 0;">The City should continue to enhance park access, focusing on the most underserved communities. <strong>The 12 lower-income districts with deficient park access are of particular concern</strong>, as poor lived environment can exacerbate the adverse impacts of a lower SES.</p>
+    </div>
+  </div>
+  
+</div>
+```
+<!-- END KEY FINDINGS -->
+
+:::::
+
+:::::::
+
+---
+
+### Geographic Distribution of Park Equity
+
+The interactive maps below illustrate how park access, socioeconomics, and vulnerable populations intersect geographically.
+
+> *Click through the tabs below to toggle between different thematic layers. Hover over or click on any Council District to view detailed demographic and park access statistics. The purple border visible on all maps denotes the bottom 25% of districts in terms of overall park access.*
+
+::: {.panel-tabset}
+
+## Overall Park Access
+
+::::: grid
+
+::: {.g-col-12 .g-col-md-8}
+
+```{r map-acres}
+#| echo: false
+#| message: false
+#| warning: false
+#| out-width: "100%"
+#| out-height: "650px"
+
+generate_map(cd_final, cd_final$facre_pc * 100000, c('#eaf5ef', '#b6d4bd', '#83b48d', '#4f9560', '#007534'), "<strong>Overall Park Acreage:</strong><br><small>Per 100k Residents</small>", labelFormat(), round_digits = 0)
+```
+
+:::
+
+::: {.g-col-12 .g-col-md-4 .map-description}
+
+**Park Acreage by District:**<br><br>
+
+The map illustrates the amount of functional park acreage per 100,000 residents that exists in each district throughout the City.
+
+Districts are colored in varying shades of green with darker areas indicating greater amounts of park acreage compared to lighter shaded areas.
+
+The purple outline indicates districts that sit in the bottom 25% of park access in the City. Park access is defined here as the amount of functional park acreage available to a resident within a 10-minute walk.
+
+:::
+
+:::::
+
+## Demographics & Income
+
+::::: grid
+
+::: {.g-col-12 .g-col-md-8}
+
+::: {.panel-tabset .nav-pills}
+
+### Median Income
+
+```{r map-inc}
+#| echo: false
+#| message: false
+#| warning: false
+#| out-width: "100%"
+#| out-height: "600px"
+
+generate_map(cd_final, cd_final$MedInc, c('#d5dded', '#afb9db', '#8996ca', '#6175b8', '#2f56a6'), "<strong>Median Household Income</strong>", labelFormat(prefix = "$", big.mark = ","), "#800000", round_digits = 0)
+```
+
+### Race (% NH White)
+
+```{r map-nhw}
+#| echo: false
+#| message: false
+#| warning: false
+#| out-width: "100%"
+#| out-height: "600px"
+
+generate_map(cd_final, cd_final$Perc_NHWhite, c('#e6dfd3', '#cfbea5', '#b79e7a', '#9e7f4f', '#846126'), "<strong>Non-Hispanic White</strong>", labelFormat(suffix = "%"), round_digits = 1)
+```
+
+:::
+
+:::
+
+::: {.g-col-12 .g-col-md-4 .map-description}
+
+**Income & Racial Disparities:**<br><br>
+
+These layers illustrate the median household income and the percentage of non-Hispanic white residents in each district.
+
+Districts that are lighter in color and outlined in purple have lower incomes (or a lower percentage of non-Hispanic white residents) *and* sit in the bottom 25% of park access citywide.
+
+Use the buttons above the map to toggle between the Median Income layer and the Race layer.
+
+:::
+
+:::::
+
+## Vulnerable Populations (Youth)
+
+::::: grid
+
+::: {.g-col-12 .g-col-md-8}
+
+::: {.panel-tabset .nav-pills}
+
+### Overall Youth Population
+
+```{r map-u18}
+#| echo: false
+#| message: false
+#| warning: false
+#| out-width: "100%"
+#| out-height: "600px"
+
+generate_map(cd_final, cd_final$Pop_Under18, c('#fce4ec', '#f8bbd0', '#f06292', '#e91e63', '#880e4f'), "<strong>Under 18 Population</strong>", labelFormat(big.mark = ","), round_digits = 0)
+```
+
+### Park Acreage per 100k Under 18s
+
+```{r map-acres-u18}
+#| echo: false
+#| message: false
+#| warning: false
+#| out-width: "100%"
+#| out-height: "600px"
+
+generate_map(cd_final, cd_final$facre_pc_under18 * 100000, c('#eaf5ef', '#b6d4bd', '#83b48d', '#4f9560', '#007534'), "<strong>Park Acreage:</strong><br><small>Per 100k Under 18</small>", labelFormat(), round_digits = 0)
+```
+
+:::
+
+:::
+
+::: {.g-col-12 .g-col-md-4 .map-description}
+
+**Youth Access to Green Space:**<br><br>
+
+Ensuring that children and teenagers have access to safe, open play areas is a core tenet of park equity.
+
+These layers contrast the overall concentration of populations under the age of 18 against the actual park acreage available specifically to them.
+
+Notice how certain districts with high youth populations actively coincide with the bottom 25% of park access metrics.
+
+:::
+
+:::::
+
+## Vulnerable Populations (Elderly)
+
+::::: grid
+
+::: {.g-col-12 .g-col-md-8}
+
+::: {.panel-tabset .nav-pills}
+
+### Overall Elderly Population
+
+```{r map-o65}
+#| echo: false
+#| message: false
+#| warning: false
+#| out-width: "100%"
+#| out-height: "600px"
+
+generate_map(cd_final, cd_final$Pop_Over65, c('#fff3e0', '#ffcc80', '#ff9800', '#f57c00', '#e65100'), "<strong>Over 65 Population</strong>", labelFormat(big.mark = ","), round_digits = 0)
+```
+
+### Park Acreage per 100k Over 65s
+
+```{r map-acres-o65}
+#| echo: false
+#| message: false
+#| warning: false
+#| out-width: "100%"
+#| out-height: "600px"
+
+generate_map(cd_final, cd_final$facre_pc_over65 * 100000, c('#eaf5ef', '#b6d4bd', '#83b48d', '#4f9560', '#007534'), "<strong>Park Acreage:</strong><br><small>Per 100k Over 65</small>", labelFormat(), round_digits = 0)
+```
+
+:::
+
+:::
+
+::: {.g-col-12 .g-col-md-4 .map-description}
+
+**Seniors & Park Equity:**<br><br>
+
+Similarly to youth, senior citizens rely heavily on local parks for outdoor recreation, health, and community connection.
+
+Toggle between the total over-65 population distribution and their demographic-specific park access rates.
+
+:::
+
+:::::
+
+## Vulnerable Populations (SNAP)
+
+::::: grid
+
+::: {.g-col-12 .g-col-md-8}
+
+```{r map-snap}
+#| echo: false
+#| message: false
+#| warning: false
+#| out-width: "100%"
+#| out-height: "600px"
+
+generate_map(cd_final, cd_final$Perc_SNAP, c('#e1f5fe', '#81d4fa', '#29b6f6', '#039be5', '#01579b'), "<strong>Households on SNAP</strong>", labelFormat(suffix = "%"), round_digits = 1)
+```
+
+:::
+
+::: {.g-col-12 .g-col-md-4 .map-description}
+
+**Public Assistance & Open Space:**<br><br>
+
+This map highlights the percentage of households receiving Supplemental Nutrition Assistance Program (SNAP) benefits.
+
+By comparing this socioeconomic indicator against the purple boundaries, we can identify economically vulnerable districts that are currently lacking sufficient equitable green space.
+
+:::
+
+:::::
+
+:::
+
+---
+
+### Relationships Between Park Equity Measures
+
+The visualizations below depict the statistical relationships between actual park acreage per capita and our assessed demographic indicators. To evaluate whether certain demographics are systemically disadvantaged regarding green space, we plotted a district's overall park access on a logarithmic scale against these variables.
+
+> *Click the tabs to switch categories. Hover your mouse over individual data points to identify the Council District and view specific values.*
+
+::: {.panel-tabset}
+
+## Socioeconomic Factors
+
+::::: grid
+
+::: {.g-col-12 .g-col-md-6}
+
+```{r scatter-income}
+#| echo: false
+#| message: false
+#| warning: false
+#| out-width: "100%"
+#| out-height: "450px"
+
+generate_interactive_scatter(cd_final, MedInc, "Median Household Income", "#2f56a6", scales::dollar, "Median Income")
+```
+
+:::
+
+::: {.g-col-12 .g-col-md-6}
+
+```{r scatter-snap}
+#| echo: false
+#| message: false
+#| warning: false
+#| out-width: "100%"
+#| out-height: "450px"
+
+generate_interactive_scatter(cd_final, Perc_SNAP, "Households receiving SNAP (%)", "#039be5", function(y) scales::percent(y, scale=1), "Public Assistance")
+```
+
+:::
+
+:::::
+
+<br>
+
+**Lack of Strong Socioeconomic Inequity Signals:** The plots above visualize the relationship between a district's park equity rank and its economic status. The dashed line represents the line of best fit for the data. *Based on these plots, there does not appear to be any significant association between a Council District's accessible park acreage and either the median income of its residents or its proportion of SNAP households.*
+
+## Race & Age Demographics
+
+::::: grid
+
+::: {.g-col-12 .g-col-md-6}
+
+```{r scatter-race}
+#| echo: false
+#| message: false
+#| warning: false
+#| out-width: "100%"
+#| out-height: "400px"
+
+generate_interactive_scatter(cd_final, Perc_NHWhite, "Non-Hispanic White (%)", "#846126", function(y) scales::percent(y, scale=1), "Race")
+```
+
+:::
+
+::: {.g-col-12 .g-col-md-6}
+
+```{r scatter-youth}
+#| echo: false
+#| message: false
+#| warning: false
+#| out-width: "100%"
+#| out-height: "400px"
+
+generate_interactive_scatter(cd_final, Perc_Under18, "Population Under 18 (%)", "#e91e63", function(y) scales::percent(y, scale=1), "Youth Population")
+```
+
+:::
+
+::: {.g-col-12 .g-col-md-6 .g-start-md-4}
+
+```{r scatter-elderly}
+#| echo: false
+#| message: false
+#| warning: false
+#| out-width: "100%"
+#| out-height: "400px"
+
+generate_interactive_scatter(cd_final, Perc_Over65, "Population Over 65 (%)", "#f57c00", function(y) scales::percent(y, scale=1), "Over 65 Population")
+```
+
+:::
+
+:::::
+
+<br>
+
+**An Encouraging Finding for Older Adults:** These plots analyze the intersection of age and racial demographics with park access. The dashed line denotes the line of best fit. *While there does not appear to be any significant correlation between a district's accessible acreage and either its proportion of Non-Hispanic Whites or minors, we did uncover a modest positive relationship between park access and the proportion of older adults.*
+
+:::
+
+---
+
+### Intersectional Vulnerability: Income, Race, and Park Access
+
+While analyzing variables individually yields few extreme correlations, exploring their intersection reveals deeper systemic realities. Instead of treating income, race, and parks as isolated metrics, we plotted **Actual Park Acreage (on a logarithmic scale)** against **Median Household Income**. To explore intersectionality, each district is colored by its **Percentage of Non-Hispanic White Residents**. 
+
+**Key Takeaway:** The visual clearly demonstrates that poorer districts generally have a **lower** Non-Hispanic White population (i.e., a higher proportion of residents of color). Crucially, looking at the bottom-left intersection, all but one Council District in the "Low Access / Low Income" quadrant are majority non-white.
+
+```{r quad-plot}
+#| echo: false
+#| message: false
+#| warning: false
+#| out-width: "100%"
+#| out-height: "600px"
+
+# Create a specialized dataset for the quadrant plot
+quad_data <- cd_final %>%
+  mutate(
+    facre_100k = facre_pc * 100000,
+    tooltip_quad = sprintf(
+      "<b>CD %s</b><br>Income: %s<br>Park Access: %s ac/100k<br>NH White: %s",
+      councildist, scales::dollar(MedInc), scales::comma(round(facre_100k, 1)), scales::percent(Perc_NHWhite/100, accuracy=1)
+    )
+  )
+
+# Calculate medians and bounds to draw the quadrant lines and labels
+med_income <- median(quad_data$MedInc, na.rm = TRUE)
+med_parks <- median(quad_data$facre_100k, na.rm = TRUE)
+x_min <- min(quad_data$facre_100k, na.rm = TRUE)
+x_max <- max(quad_data$facre_100k, na.rm = TRUE)
+
+quad_plot <- ggplot(quad_data, aes(x = facre_100k, y = MedInc)) +
+  # Quadrant lines 
+  geom_hline(aes(yintercept = med_income, linetype = "Citywide Median"), color = "#7a7a8e", linewidth = 0.8) +
+  geom_vline(xintercept = med_parks, color = "#7a7a8e", linetype = "dashed", linewidth = 0.8) +
+  
+  # Interactive Points
+  geom_point_interactive(aes(color = Perc_NHWhite, tooltip = tooltip_quad, data_id = councildist), size = 4.5, alpha = 0.85) +
+  
+  # Color Gradient 
+  scale_color_gradientn(
+    colors = c("#846126", "#cfbea5", "#e6dfd3", "#b6d4bd", "#007534"),
+    labels = function(x) paste0(x, "%")
+  ) +
+  
+  # Configure custom line legend
+  scale_linetype_manual(values = "dashed", name = NULL) +
+  
+  # Log Scale for heavily skewed Park Acreage
+  scale_x_log10(labels = scales::comma, breaks = c(100, 300, 1000, 3000), expand = expansion(mult = c(0.15, 0.15))) +
+  # Y Scale expanded heavily downward to prevent point occlusion with labels
+  scale_y_continuous(labels = scales::dollar, expand = expansion(mult = c(0.15, 0.1))) +
+  
+  # Labels
+  labs(
+    title = "Intersection of Park Access, Income, and Race",
+    x = "Actual Park Acreage per 100k Residents (Log Scale)",
+    y = "Median Household Income",
+    color = "Non-Hispanic White",
+    caption = "Source: Councilcount (ACS); NYC Parks"
+  ) +
+  
+  # Annotate Quadrants safely using exact min/max bounds
+  annotate("text", x = x_min * 0.75, y = Inf, label = "Low Access\nHigh Income", fontface="bold", color="#4a4a68", size=3.5, family="Inter", hjust = 0, vjust = 1.5) +
+  annotate("text", x = x_max * 1.25, y = Inf, label = "High Access\nHigh Income", fontface="bold", color="#4a4a68", size=3.5, family="Inter", hjust = 1, vjust = 1.5) +
+  annotate("text", x = x_min * 0.75, y = -Inf, label = "Low Access\nLow Income", fontface="bold", color="#4a4a68", size=3.5, family="Inter", hjust = 0, vjust = -0.5) +
+  annotate("text", x = x_max * 1.25, y = -Inf, label = "High Access\nLow Income", fontface="bold", color="#4a4a68", size=3.5, family="Inter", hjust = 1, vjust = -0.5) +
+  
+  theme_minimal(base_family = "Inter") +
+  theme(
+    panel.grid.major = element_line(color = "#f0f0f0"),
+    plot.title = element_text(family = "DM Serif Display", size = 18, color = "#1a1a2e", margin=margin(b=15)),
+    legend.position = "right",
+    legend.title = element_text(face = "bold", size=10),
+    legend.box = "vertical",
+    legend.margin = margin(t = 0, b = 0),
+    legend.key.width = unit(1.2, "cm") 
+  ) +
+  # Force Linetype legend above Color legend
+  guides(
+    linetype = guide_legend(order = 1),
+    color = guide_colorbar(order = 2)
+  )
+
+girafe(ggobj = quad_plot, width_svg = 10, height_svg = 6, options = list(opts_hover(css = "stroke:#333;stroke-width:2px;r:6px;")))
+```
+
+---
+
+### Enacted and Proposed Legislature
+
+Legislative action is essential to addressing the park access disparities identified in this analysis. Below are key laws and proposals aimed at improving accountability, expanding green space, and strengthening community resources across New York City.
+
+```{=html}
+<div class="legislature-cards" style="margin-top: 1.5rem;">
+
+  <!-- Card 1: Local Law 67 -->
+  <div class="law-card" style="display: flex; gap: 1rem; align-items: flex-start; background: white; border-radius: 10px; padding: 1.25rem; border-left: 4px solid #007534; box-shadow: 0 1px 4px rgba(0,0,0,0.06);">
+    <div style="flex-shrink: 0; width: 44px; height: 44px; border-radius: 10px; background: #eaf5ef; display: flex; align-items: center; justify-content: center;">
+      <i class="fa-solid fa-clipboard-check" style="color: #007534; font-size: 1.2rem;"></i>
+    </div>
+    <div>
+      <div style="font-family: Inter, sans-serif; font-weight: 700; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; color: #1a1a2e; margin-bottom: 0.35rem;">Local Law 67 of 2022 <span style="background: #eaf5ef; color: #007534; font-size: 0.7rem; padding: 2px 8px; border-radius: 100px; margin-left: 6px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Enacted</span></div>
+      <p style="font-family: Inter, sans-serif; font-size: 0.88rem; line-height: 1.55; color: #4a4a68; margin: 0;">This bill requires NYC Parks to issue a report to the Mayor and Council that identifies parks and playgrounds under its jurisdiction that have routinely failed DPR inspections and submit a plan to the Council on how the issues at such parks and playgrounds will be corrected. <a href="https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=5555468&GUID=0A98ECD3-6614-4844-A511-FE25ED2895EA&Options=&Search=E" target="_blank" style="color: #007534; font-weight: 600; font-size: 0.8rem; text-decoration: none; border-bottom: 1.5px solid transparent; transition: border-color 0.2s;">View Law →</a></p>
+    </div>
+  </div>
+  
+<!-- Card 2: Local Law 10 -->
+<div class="law-card" style="display: flex; gap: 1rem; align-items: flex-start; background: white; border-radius: 10px; padding: 1.25rem; border-left: 4px solid #846126; box-shadow: 0 1px 4px rgba(0,0,0,0.06);">
+  <div style="flex-shrink: 0; width: 44px; height: 44px; border-radius: 10px; background: #f5ede0; display: flex; align-items: center; justify-content: center;">
+    <i class="fa-solid fa-leaf" style="color: #846126; font-size: 1.2rem;"></i>
+  </div>
+  <div>
+    <div style="font-family: Inter, sans-serif; font-weight: 700; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; color: #1a1a2e; margin-bottom: 0.35rem;">Local Law 10 of 2023 <span style="background: #f5ede0; color: #846126; font-size: 0.7rem; padding: 2px 8px; border-radius: 100px; margin-left: 6px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Enacted</span></div>
+    <p style="font-family: Inter, sans-serif; font-size: 0.88rem; line-height: 1.55; color: #4a4a68; margin: 0;">This bill requires a mayor-designated office, in coordination with NYC Parks and other appropriate city agencies, to identify and evaluate city-owned sites in residential areas — especially in environmental justice communities — for potential green infrastructure like trees, bioswales, and small parks. <a href="https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=5839359&GUID=C1133036-097D-405E-9B56-93AD9E94438A&Options=Advanced&Search=" target="_blank" style="color: #846126; font-weight: 600; text-decoration: none; border-bottom: 1.5px solid transparent; transition: border-color 0.2s;">View Law →</a></p>
+  </div>
+</div>
+
+
+  <!-- Card 3: Intro 109 -->
+  <div class="law-card" style="display: flex; gap: 1rem; align-items: flex-start; background: white; border-radius: 10px; padding: 1.25rem; border-left: 4px solid #2f56a6; box-shadow: 0 1px 4px rgba(0,0,0,0.06);">
+    <div style="flex-shrink: 0; width: 44px; height: 44px; border-radius: 10px; background: #e8edf7; display: flex; align-items: center; justify-content: center;">
+      <i class="fa-solid fa-seedling" style="color: #2f56a6; font-size: 1.2rem;"></i>
+    </div>
+    <div>
+      <div style="font-family: Inter, sans-serif; font-weight: 700; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; color: #1a1a2e; margin-bottom: 0.35rem;">Introduction 109 of 2024 <span style="background: #e8edf7; color: #2f56a6; font-size: 0.7rem; padding: 2px 8px; border-radius: 100px; margin-left: 6px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Filed</span></div>
+      <p style="font-family: Inter, sans-serif; font-size: 0.88rem; line-height: 1.55; color: #4a4a68; margin: 0;">This bill would require NYC Parks to collect data on community gardens and issue an annual report summarizing this data. Additionally, this bill would require NYC Parks to study the citywide ecological impacts of community gardens. This bill would also direct the agency to develop a system to permit community gardens to operate farmers markets within community gardens. <a href="https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=6557287&GUID=3805DE9E-2C0C-4F0C-B9EE-6949FC17DBB7" target="_blank" style="color: #2f56a6; font-weight: 600; font-size: 0.8rem; text-decoration: none; border-bottom: 1.5px solid transparent; transition: border-color 0.2s;">View Law →</a></p>
+    </div>
+  </div>
+
+  <!-- Card 4: Intro 740 -->
+  <div class="law-card" style="display: flex; gap: 1rem; align-items: flex-start; background: white; border-radius: 10px; padding: 1.25rem; border-left: 4px solid #6C3FA0; box-shadow: 0 1px 4px rgba(0,0,0,0.06);">
+    <div style="flex-shrink: 0; width: 44px; height: 44px; border-radius: 10px; background: #f0e8f7; display: flex; align-items: center; justify-content: center;">
+      <i class="fa-solid fa-magnifying-glass-chart" style="color: #6C3FA0; font-size: 1.2rem;"></i>
+    </div>
+    <div>
+      <div style="font-family: Inter, sans-serif; font-weight: 700; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; color: #1a1a2e; margin-bottom: 0.35rem;">Introduction 740 of 2026 <span style="background: #f0e8f7; color: #6C3FA0; font-size: 0.7rem; padding: 2px 8px; border-radius: 100px; margin-left: 6px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Laid Over in Committee</span></div>
+      <p style="font-family: Inter, sans-serif; font-size: 0.88rem; line-height: 1.55; color: #4a4a68; margin: 0;">This bill would require NYC Parks and other relevant City agencies to conduct a study to identify at least the top 10 community districts that lack the most green space, and to make recommendations to the Mayor and Council on how to increase green space, including parkland, in such areas. <a href="https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7944755&GUID=3E6680D2-F8F2-4E76-A492-2F6AA07DCF55&Options=Advanced&Search=" target="_blank" style="color: #6C3FA0; font-weight: 600; font-size: 0.8rem; text-decoration: none; border-bottom: 1.5px solid transparent; transition: border-color 0.2s;">View Law →</a></p>
+    </div>
+  </div>
+
+</div>
+```
+
+---
+
+### About the Data & Methodology
+
+This analysis was conducted by the NYC Council Data Team to evaluate the state of equitable park access across local legislative boundaries.
+
+- **10-Minute Walkability:** Using the *Walk-to-a-Park Service Area* dataset and Mapbox API, we generated 10-minute walking distance isochrones from park access points to determine which census tracts (CTs) can actively utilize a given park.
+
+- **Capped Functional Acreage:** To prevent massive parks from disproportionately skewing access rates for edge communities, the maximum assigned area from any single park was capped at ~160.7 acres (three standard deviations above the city average).
+
+- **Legislative Aggregation:** Because Census Tracts do not nest neatly into Council Districts, we assigned CT centroids via spatial joins. To calculate a district's overall access without penalizing highly populated areas, we utilized a population-weighted average of the local CT-level access rates.
+
+- **Demographic Estimates:** Variables such as Median Income, Race, Age groups, and SNAP enrollment were retrieved from the 2023 5-Year ACS utilizing the `councilcount` and `censusapi` R packages.
