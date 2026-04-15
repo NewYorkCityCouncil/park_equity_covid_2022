@@ -598,7 +598,7 @@ quad_plot <- ggplot(quad_data, aes(x = facre_100k, y = MedInc)) +
   
   # Color Gradient 
   scale_color_gradientn(
-    colors = c("#846126", "#cfbea5", "#e6dfd3", "#b6d4bd", "#007534"),
+    colors = c("#6C3FA0", "#B39DDB", "#E8F5E9", "#66BB6A", "#007534"),
     labels = function(x) paste0(x, "%")
   ) +
   
