@@ -151,7 +151,7 @@ By measuring the population-weighted accessible acres within a 10-minute walk fo
 ```{=html}
 <div style="margin-top: 2.5rem; max-width: 90%;">
   <h4 style="color: #1a1a2e; font-family: 'Inter', sans-serif; font-size: 1.15rem; font-weight: 700; margin-bottom: 0.85rem;">
-    Whose Park? Equity in NYC's Green Spaces <i class="fa-solid fa-video" style="color: #6C3FA0; margin-left: 6px;"></i>
+    Whose Park? Equity in NYC's Green Spaces <i class="fa-solid fa-video" style="color: #FF0000; margin-left: 6px;"></i>
   </h4>
   <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 8px; box-shadow: 0 4px 14px rgba(0,0,0,0.1);">
     <iframe
