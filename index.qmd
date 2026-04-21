@@ -143,9 +143,9 @@ generate_interactive_scatter <- function(data, y_var, y_label, point_color, y_fo
 
 Recent releases by various advocacy groups have highlighted the inequities faced by the city's parks system. Public parks are vital infrastructure, offering recreational opportunities, health benefits, and environmental resilience to surrounding neighborhoods. However, access to high-quality park space is rarely distributed equally.
 
-Report by the Trust for Public Land found that parks in low-income and minority neighborhoods across the city are often smaller, making it more difficult to spread out and keep a distance from others.
+[A report by the Trust for Public Land](https://www.tpl.org/resource/heat-trust-public-land-special-report) found that parks in low-income and minority neighborhoods across the city are often smaller, making it more difficult to spread out and keep a distance from others.
 
-By measuring the population-weighted accessible acres within a 10-minute walk for residents in each of the City's 51 Council Districts, this analysis identifies which districts are adequately served by the city's green spaces and which face systemic deficits. In addition, we assess the relationship between accessible park acreage and various equity measures, including age, race/ethnicity, and income, at the Council District level. 
+By measuring the population-weighted accessible acres of parkland within a 10-minute walk for residents in each of the City's 51 Council Districts, this analysis identifies which districts are adequately served by the city's green spaces and which face systemic deficits. In addition, we assess the relationship between accessible park acreage and various equity measures, including age, race/ethnicity, and income, at the Council District level. 
 
 <!-- EMBEDDED VIDEO SECTION -->
 ```{=html}
@@ -166,7 +166,7 @@ By measuring the population-weighted accessible acres within a 10-minute walk fo
     </iframe>
   </div>
   <p style="font-size: 0.95rem; color: #7a7a8e; margin-top: 1rem; line-height: 1.6;">
-    <em>Tupper Thomas, former Executive Director of New Yorkers for Parks, moderates a candid discussion with former Ford Foundation President Darren Walker, former Brooklyn Bridge Park President Regina Myer, and former Brooklyn Deputy Borough President Diana Reyna about parks, equity, and the complicated mediation between users.</em>
+    <em>Tupper Thomas, former Executive Director of New Yorkers for Parks, moderates a candid discussion with former Ford Foundation President Darren Walker, former Brooklyn Bridge Park President Regina Myer, and former Brooklyn Deputy Borough President Diana Reyna about parks, equity, and the complicated mediation between users. March 22, 2017.</em>
   </p>
 </div>
 ```
@@ -239,7 +239,7 @@ By measuring the population-weighted accessible acres within a 10-minute walk fo
 
 The interactive maps below illustrate how park access, socioeconomics, and vulnerable populations intersect geographically.
 
-> *Click through the tabs below to toggle between different thematic layers. Hover over or click on any Council District to view detailed demographic and park access statistics. The purple border visible on all maps denotes the bottom 25% of districts in terms of overall park access.*
+> *Click through the tabs below to toggle between different thematic layers. Click on any Council District to view detailed demographic and park access statistics. The purple border visible on all maps denotes the bottom 25% of districts in terms of overall park access.*
 
 ::: {.panel-tabset}
 
@@ -265,7 +265,7 @@ generate_map(cd_final, cd_final$facre_pc * 100000, c('#eaf5ef', '#b6d4bd', '#83b
 
 **Park Acreage by District:**<br><br>
 
-The map illustrates the amount of functional park acreage per 100,000 residents that exists in each district throughout the City.
+The map illustrates the amount of functional park acreage per 100,000 residents in each district throughout the City.
 
 Districts are colored in varying shades of green with darker areas indicating greater amounts of park acreage compared to lighter shaded areas.
 
@@ -325,7 +325,7 @@ Use the buttons above the map to toggle between the Median Income layer and the 
 
 :::::
 
-## Vulnerable Populations (Youth)
+## Youth
 
 ::::: grid
 
@@ -369,13 +369,11 @@ Ensuring that children and teenagers have access to safe, open play areas is a c
 
 These layers contrast the overall concentration of populations under the age of 18 against the actual park acreage available specifically to them.
 
-Notice how certain districts with high youth populations actively coincide with the bottom 25% of park access metrics.
-
 :::
 
 :::::
 
-## Vulnerable Populations (Elderly)
+## Elderly
 
 ::::: grid
 
@@ -423,7 +421,7 @@ Toggle between the total over-65 population distribution and their demographic-s
 
 :::::
 
-## Vulnerable Populations (SNAP)
+## SNAP Recipients
 
 ::::: grid
 
@@ -459,7 +457,7 @@ By comparing this socioeconomic indicator against the purple boundaries, we can 
 
 ### Relationships Between Park Equity Measures
 
-The visualizations below depict the statistical relationships between actual park acreage per capita and our assessed demographic indicators. To evaluate whether certain demographics are systemically disadvantaged regarding green space, we plotted a district's overall park access on a logarithmic scale against these variables.
+The visualizations below depict the statistical relationships between actual park acreage per capita and our assessed demographic indicators. To evaluate whether certain demographics are systemically disadvantaged regarding green space, we plotted a district's overall park access on a logarithmic scale against these variables. Each plot also shows the results of a correlation test, where "r" is the Pearson correlation coefficient and "p" is the corresponding p-value. 
 
 > *Click the tabs to switch categories. Hover your mouse over individual data points to identify the Council District and view specific values.*
 
