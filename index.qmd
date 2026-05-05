@@ -691,7 +691,7 @@ Legislative action is essential to addressing the park access disparities identi
       <i class="fa-solid fa-magnifying-glass-chart" style="color: #6C3FA0; font-size: 1.2rem;"></i>
     </div>
     <div>
-      <div style="font-family: Inter, sans-serif; font-weight: 700; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; color: #1a1a2e; margin-bottom: 0.35rem;">Introduction 740 of 2026 <span style="background: #f0e8f7; color: #6C3FA0; font-size: 0.7rem; padding: 2px 8px; border-radius: 100px; margin-left: 6px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Laid Over in Committee</span></div>
+      <div style="font-family: Inter, sans-serif; font-weight: 700; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; color: #1a1a2e; margin-bottom: 0.35rem;">Introduction 740 of 2026 <span style="background: #f0e8f7; color: #6C3FA0; font-size: 0.7rem; padding: 2px 8px; border-radius: 100px; margin-left: 6px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Enacted (Mayor's Desk)</span></div>
       <p style="font-family: Inter, sans-serif; font-size: 0.88rem; line-height: 1.55; color: #4a4a68; margin: 0;">This bill would require NYC Parks and other relevant City agencies to conduct a study to identify at least the top 10 community districts that lack the most green space, and to make recommendations to the Mayor and Council on how to increase green space, including parkland, in such areas. <a href="https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7944755&GUID=3E6680D2-F8F2-4E76-A492-2F6AA07DCF55&Options=Advanced&Search=" target="_blank" style="color: #6C3FA0; font-weight: 600; font-size: 0.8rem; text-decoration: none; border-bottom: 1.5px solid transparent; transition: border-color 0.2s;">View Law →</a></p>
     </div>
   </div>
@@ -712,3 +712,18 @@ This analysis was conducted by the NYC Council Data Team to evaluate the state o
 - **Legislative Aggregation:** Because Census Tracts do not nest neatly into Council Districts, we assigned CT centroids via spatial joins. To calculate a district's overall access without penalizing highly populated areas, we utilized a population-weighted average of the local CT-level access rates.
 
 - **Demographic Estimates:** Variables such as Median Income, Race, Age groups, and SNAP enrollment were retrieved from the 2023 5-Year ACS utilizing the `councilcount` and `censusapi` R packages.
+
+---
+
+```{=html}
+<div style="font-family: 'Inter', sans-serif; font-size: 1.1rem; color: #333333; margin-top: 2rem;">
+  <p style="margin-bottom: 1.25rem;">
+    <i class="fa-solid fa-comments" style="color: #2f56a6; margin-right: 6px; font-size: 1.2rem;"></i> 
+    For feedback, comments, and questions please email <a href="mailto:DataInfo@council.nyc.gov" style="color: #2f56a6; font-weight: 700; text-decoration: none;">DataInfo@council.nyc.gov</a>.
+  </p>
+  <p>
+    Created by the <a href="https://council.nyc.gov/data/" style="color: #2f56a6; font-weight: 700; text-decoration: none;">NYC Council Data Team</a>.
+  </p>
+</div>
+```
+

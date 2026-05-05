@@ -91,8 +91,8 @@ p {
 
 hr {
   border: 0;
-  height: 1px;
-  background: linear-gradient(to right, transparent, var(--border-light), transparent);
+  height: 2px; 
+  background: linear-gradient(to right, transparent, #b0b5be, transparent); 
   width: 80%;
   margin: 4rem auto;
 }
